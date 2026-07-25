@@ -3,7 +3,8 @@
 //   SupabaseAdapter — shared crew database (window.PUSHPACT_CONFIG = {url, anonKey} in config.js)
 //
 // Interface: init(), findCrew(code), createCrew(code), listProfiles(crewId),
-// createProfile(crewId,name,avatar), fetchAll(crewId) -> {sets,statuses,settings,crew},
+// createProfile(crewId,name,avatar), updateProfile(profileId,name,avatar),
+// fetchAll(crewId) -> {sets,statuses,settings,crew},
 // addSet(profileId,day,reps), addStatus(row), removeStatus(profileId,day,kind),
 // saveSettings(crewId,settings,name), subscribe(crewId,cb)
 
@@ -29,6 +30,12 @@ export class LocalAdapter {
     const db = this._db();
     const p = { id: uid(), crew_id: crewId, name, avatar, created_at: new Date().toISOString() };
     db.profiles.push(p); this._save(db); return p;
+  }
+  async updateProfile(profileId, name, avatar) {
+    const db = this._db();
+    const p = db.profiles.find((x) => x.id === profileId);
+    if (p) { p.name = name; p.avatar = avatar; }
+    this._save(db);
   }
   async fetchAll(crewId) {
     const db = this._db();
@@ -105,6 +112,11 @@ export class SupabaseAdapter {
       { p_code: this.code, p_crew_id: crewId, p_name: name, p_avatar: avatar });
     if (error) throw error;
     return data;
+  }
+  async updateProfile(profileId, name, avatar) {
+    const { error } = await this.client.rpc("update_profile",
+      { p_code: this.code, p_crew_id: this.crewId, p_profile_id: profileId, p_name: name, p_avatar: avatar });
+    if (error) throw error;
   }
   async fetchAll(crewId) {
     const { data, error } = await this.client.rpc("crew_bundle", { p_code: this.code, p_crew_id: crewId });

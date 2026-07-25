@@ -62,8 +62,12 @@ export function allTimeTotal(sets, profileId) {
 }
 
 export function isLate(set) {
-  // "logged late" tag: the set was recorded on a different calendar date than its day
-  return set.logged_at ? set.logged_at.slice(0, 10) !== set.day : false;
+  // "logged late" tag: the set was recorded on a different calendar date than
+  // its day — in the USER'S timezone. logged_at is a UTC ISO string, so it
+  // must be converted to a local day before comparing; slicing the raw string
+  // flagged every pre-morning log as late east of Greenwich (owner-reported:
+  // an 8:50am AEST log has yesterday's UTC date).
+  return set.logged_at ? toDayStr(new Date(set.logged_at)) !== set.day : false;
 }
 
 // ---- rest days ----

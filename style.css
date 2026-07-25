@@ -1,16 +1,50 @@
-/* Push Pact — "Safe Dial" system. Contract: DESIGN.md. NO ORANGE. */
+/* Rope & Rung — "Safe Dial" system. Contract: DESIGN.md. NO ORANGE. */
 
 :root{
-  --paper:#FAF3E8; --card:#FFFCF5; --ink:#1F1B16; --muted:#8A7F6E;
+  /* --muted darkened 2026-07-23 (was #8A7F6E, ~3.7:1 on --paper — fails WCAG
+     AA); #6E6353 is 5.3:1 on --paper / 5.7:1 on --card, still clearly
+     secondary next to --ink (15.5:1 on --paper) */
+  --paper:#FAF3E8; --card:#FFFCF5; --card-rgb:255,252,245; --ink:#1F1B16; --muted:#6E6353;
+  /* launch-screen UNDERLAY disc (owner: not a washed-out watermark — a slightly
+     subtler version of the real icon sitting UNDER the page). Deliberately an
+     OPAQUE per-theme hex, not a translucent accent: the knot's halo has to match
+     the disc EXACTLY to kill the candy-cane outline, and you can only match a
+     colour that doesn't change with whatever is behind it. Value = what
+     accent #0F7A6D looked like composited at 50% over this theme's --paper, so
+     the disc reads as before while the figure/orbit on top go full brightness. */
+  --ul-disc:#85B7AB;
   --accent:#0F7A6D; --pine:#0B3B34; --volt:#C7F464;
   --met:#2F7A4B; --rest:#5B7FA6; --excused:#C98A2B; --missed:#B23A2E; --pending:#D8CFBE;
   --hair:rgba(31,27,22,.14);
-  --postit:#F0D48A; --postit-ink:#4A3A12;
+  --postit:#F0D48A; --postit-ink:#4A3A12; --postit-ink-soft:#8A6D1E; --postit-muted:#B99B4E; --postit-fold:#D8B759;
   --grad:linear-gradient(160deg,#0F7A6D,#0B3B34);
   --r-sm:10px; --r-md:14px; --r-lg:18px;
-  --shadow-card:0 2px 10px rgba(31,27,22,.05),0 8px 28px rgba(31,27,22,.05);
-  --shadow-pop:0 10px 34px rgba(31,27,22,.16);
+  --shadow-rgb:31,27,22; --texture-rgb:31,27,22;
+  --shadow-card:0 2px 10px rgba(var(--shadow-rgb),.05),0 8px 28px rgba(var(--shadow-rgb),.05);
+  --shadow-pop:0 10px 34px rgba(var(--shadow-rgb),.16);
   --ease-out:cubic-bezier(.22,1,.36,1);
+  /* surfaces/text that sit on the fixed teal->pine gradient (buttons, avatars,
+     hero cards) — these stay constant across themes since the gradient itself
+     doesn't change, only the page around it does */
+  --on-accent:#FFFCF5;
+  --dial-ring:#EDE3D0; --chip-active-bg:#F1EADB;
+  --tabbar-bg:rgba(255,252,245,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    /* --muted checked 2026-07-23: #9FB3AC is 7.8:1 on --paper / 5.6:1 on
+       --card here — already passes WCAG AA, no change needed */
+    --paper:#081F1B; --card:#0B3B34; --card-rgb:11,59,52; --ink:#F5F0E3; --muted:#9FB3AC;
+    --ul-disc:#0C4D44;
+    --met:#52C285; --rest:#8FB8E8; --excused:#E8AC52; --missed:#E8695C; --pending:#6B8079;
+    --hair:rgba(250,243,232,.14);
+    --shadow-rgb:0,0,0; --texture-rgb:250,243,232;
+    --dial-ring:#123F38; --chip-active-bg:#123F38;
+    --tabbar-bg:rgba(11,59,52,.28);
+    /* accent/pine/volt/grad/postit family intentionally unchanged: the brand
+       gradient and the post-it's "physical yellow paper" both need to read
+       the same regardless of theme */
+  }
 }
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
@@ -24,7 +58,14 @@ body{
   touch-action:manipulation;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
   overscroll-behavior:none;
+  /* this is an app shell, not a document — a slightly-imprecise tap on a
+     button or the dial shouldn't be able to turn into a text-selection
+     drag and eat the click. Only .dial had this before; it needs to be
+     everywhere. Inputs/textareas explicitly opt back in below. */
+  -webkit-user-select:none; user-select:none;
+  -webkit-touch-callout:none;
 }
+input, textarea{-webkit-user-select:text; user-select:text}
 /* svh (not dvh): Safari's collapsing toolbar changes dvh mid-drag and re-flows
    the whole page — the "jitter" — while svh stays fixed */
 #app{max-width:430px;margin:0 auto;min-height:100svh;display:flex;flex-direction:column}
@@ -45,19 +86,95 @@ body{
 .rr-lantern-b{offset-path:path("M 36 34 C 34 26, 44 24, 50 28 C 58 33, 70 34, 90 34");animation:rrPulseB 5.1s linear infinite}
 @keyframes rrPulseA{0%{offset-distance:0%;opacity:1}55.6%{offset-distance:100%;opacity:1}55.7%{opacity:0}100%{opacity:0;offset-distance:100%}}
 @keyframes rrPulseB{0%,55.6%{opacity:0;offset-distance:0%}55.7%{opacity:1;offset-distance:0%}100%{opacity:1;offset-distance:100%}}
-/* logo: pushup figure in the ring — feet planted, body pivots at the feet like a real rep */
-.logomark .lm-body{transform-box:view-box;transform-origin:22px 63px;animation:lmPush 1.7s ease-in-out infinite}
+/* logo: pushup figure in the ring — feet planted, body pivots at the feet like a real rep.
+   Selectors target the classes directly (not scoped under .logomark) since the
+   markup now lives once in <symbol id="rr-logomark"> and is cloned into both
+   header + onboarding instances via <use> — a plain class selector matches
+   inside that clone reliably; a descendant selector anchored on the host
+   .logomark element is not guaranteed to. */
+.lm-body{transform-box:view-box;transform-origin:22px 63px;animation:lmPush 1.7s ease-in-out infinite}
 @keyframes lmPush{50%{transform:rotate(7deg)}}
 /* volt dot orbits the disc once per rep, synced to lmPush's 1.7s cycle */
-.logomark .lm-orbit{transform-box:view-box;transform-origin:48px 48px;animation:lmOrbit 1.7s linear infinite}
+.lm-orbit{transform-box:view-box;transform-origin:48px 48px;animation:lmOrbit 5.1s linear infinite}
 @keyframes lmOrbit{to{transform:rotate(360deg)}}
 
 .app-head{display:flex;justify-content:space-between;align-items:center;padding:calc(14px + env(safe-area-inset-top)) 22px 0}
 .brand{display:flex;align-items:center;gap:8px}
 .logomark{width:26px;height:26px}
-.ob-logo{width:72px;height:72px;margin-bottom:14px;animation:logoIn .9s var(--ease-out)}
-@keyframes logoIn{from{opacity:0;transform:rotate(-120deg) scale(.6)}to{opacity:1;transform:rotate(0) scale(1)}}
+/* onboarding: wordmark promoted (was sharing top billing with the .ob-logo
+   badge, now removed from this spot entirely — see .ob-watermark below) —
+   scoped class so the shared .wordmark base rule (used by the header's small
+   mark and the celebration overlay) stays untouched. Given a soft brand-teal
+   shadow for weight. Width capped BELOW .ob-inner's own ~327px content box
+   (327 - overlay's 24px*2 padding on a 375px phone) on purpose: margin:auto
+   only centers an element that's narrower than its container — a wider box
+   (the old 340/350px attempts) silently collapses its auto-margins to 0 per
+   spec and just overflows off the right edge instead of centering. 312px
+   leaves real slack on both sides so centering actually holds; the real
+   enlargement now comes from the scale(1.1) on the onboarding <use> itself
+   (see the HTML comment beside that tag), not a viewBox crop. */
+/* The knot's over-strand halo is --paper everywhere else in the app, which blends
+   invisibly because those surfaces ARE --paper. On the launch screen the knot sits
+   on the underlay disc instead, so there it must be the DISC's colour or it reads
+   as a hard "candy-cane" outline (owner). Custom properties inherit across the
+   <use> shadow boundary (plain selectors do not), so this retints ONLY this
+   instance — the header badge and celebration overlay keep the --paper fallback.
+   Scoped to the knot's own halo path; the ROPE/RUNG letter halos are untouched. */
+.ob-wordmark{width:min(312px,86vw);height:auto;display:block;margin:6px auto 8px;
+  --rr-weave:var(--ul-disc);
+  filter:drop-shadow(0 6px 20px rgba(15,122,109,.22))}
+/* full-screen ambient watermark (owner feedback 2026-07-24): the pushup figure
+   that used to sit as a badge directly above the wordmark, now blown up huge,
+   faint, and pinned behind every onboarding element instead of competing with
+   the brand name for attention. Fixed (not absolute) so it's pinned to the
+   actual phone viewport regardless of #onboarding's own layout; negative
+   z-index (relative to #onboarding's own stacking context, z-index:50) keeps
+   it under the non-positioned .ob-inner column without needing to touch that
+   column's stacking. Centered a bit below screen-middle so it reads as sitting
+   under the crew-code input step, not the wordmark up top. Reuses the real
+   #rr-logomark (teal disc + paper figure + volt orbit dot) unmodified.
+   Colour fix (owner: "grey in dark mode / milky in light mode"): earlier
+   attempts chased this with mix-blend-mode (multiply in light, screen in
+   dark, flipped per-theme) plus a pair of [stroke]/[fill] attribute-selector
+   overrides trying to redirect the figure's hardcoded #FAF3E8 fill to
+   var(--ink). Both approaches were fighting the same wall: #rr-logomark is
+   only ever painted via <use>, which clones the <symbol>'s content into a
+   shadow tree that outer-document CSS selectors (descendant or attribute)
+   cannot match into — only inherited properties and custom properties
+   (--x) cross that boundary. The [stroke=]/[fill=] overrides above never
+   actually applied to the cloned paths; they're removed. The real fix
+   doesn't need to reach inside the clone at all: mix-blend-mode:normal
+   (i.e. no blend-mode override) at moderate opacity, with a mild
+   filter:saturate() to pull it back a touch from full brand-colour
+   intensity, reads correctly as a soft tint of the SAME colours in both
+   themes — the teal disc gives the figure enough of its own contrast
+   against both the light and dark --paper background that no per-theme
+   blend-mode gymnastics are needed. ~7% desaturation (saturate(.93)) plus
+   opacity .5 keeps it clearly present without overpowering the onboarding
+   content sitting on top. Motion (lm-body/lm-orbit) is killed by the
+   existing global prefers-reduced-motion rule at the top of this file,
+   same as everywhere else. */
+.ob-watermark{position:fixed;left:50%;top:52%;transform:translate(-50%,-50%);
+  width:clamp(320px,150vmin,640px);height:clamp(320px,150vmin,640px);
+  z-index:-1;pointer-events:none;overflow:visible}
+.ob-watermark .lm-orbit circle:first-child{opacity:.9}
+.head-actions{display:flex;align-items:center;gap:10px}
+.head-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .head-date{font-size:13px;color:var(--muted);font-weight:600}
+.date-override-tag{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--on-accent);background:var(--accent);padding:2px 7px;border-radius:var(--r-sm)}
+.menu-wrap{position:relative}
+.menu-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:var(--muted);cursor:pointer;border-radius:var(--r-sm);transition:background .15s,transform .15s}
+.menu-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+.menu-btn:active{transform:scale(.92);background:var(--hair)}
+.menu-dropdown{position:absolute;right:0;top:calc(100% + 8px);background:rgba(var(--card-rgb),.55);border:1px solid var(--hair);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-radius:var(--r-sm);box-shadow:var(--shadow-pop);z-index:70;min-width:140px;overflow:hidden}
+.menu-item{display:block;width:100%;text-align:left;padding:11px 14px;font-size:14px;font-weight:600;color:var(--ink);
+  background:none;border:none;cursor:pointer;font-family:"Instrument Sans",sans-serif}
+.menu-item:active{background:var(--hair)}
+#admin-modal{background:rgba(var(--shadow-rgb),.45)}
+.admin-modal-input{width:100%;padding:12px;border:1px solid var(--hair);background:var(--paper);font-family:Archivo,sans-serif;
+  font-weight:700;font-size:16px;letter-spacing:.04em;text-align:center;color:var(--ink);border-radius:var(--r-sm)}
 .local-banner{margin:10px 22px 0;padding:8px 12px;font-size:12px;font-weight:600;color:var(--rest);border:1px dashed var(--rest);background:var(--card);border-radius:var(--r-sm)}
 .install-hint{border-radius:var(--r-lg)}
 .ob-inner input[type=text],.set-card input,.hist-add input,#hist-person{border-radius:var(--r-sm)}
@@ -76,21 +193,37 @@ body{
 .home-hero{padding:20px 22px 4px}
 .hh-greet{font-family:Archivo,sans-serif;font-weight:800;font-size:30px;letter-spacing:-.02em;line-height:1.05}
 .hh-sub{font-size:13px;font-weight:600;color:var(--muted);margin-top:6px}
-.home-card{margin:16px 22px 0;padding:20px;border-radius:var(--r-lg);background:var(--grad);color:#FFFCF5;
+.home-card{margin:16px 22px 0;padding:20px;border-radius:var(--r-lg);background:var(--grad);color:var(--on-accent);
   box-shadow:0 14px 34px rgba(15,122,109,.3);animation:rowIn .45s var(--ease-out)}
 .hc-top{display:flex;align-items:center;justify-content:space-between}
 .hc-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
-.hc-nums{display:flex;align-items:baseline;gap:8px;margin-top:8px}
+.hc-main{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:8px}
+.hc-nums{display:flex;align-items:baseline;gap:8px}
 .hc-tally{font-family:Archivo,sans-serif;font-weight:800;font-size:64px;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .hc-of{font-size:18px;font-weight:600;opacity:.8}
-.hc-bar{height:8px;border-radius:4px;background:rgba(255,252,245,.22);margin-top:14px;overflow:hidden}
-.hc-bar span{display:block;height:100%;border-radius:4px;background:var(--volt);transition:width .6s var(--ease-out)}
-.hc-meta{font-size:13px;font-weight:600;opacity:.85;margin-top:10px}
+/* dial glyph — the hero card's echo of the Today dial's signature shape,
+   replacing the old linear .hc-bar strip (council: "crown the dial as the
+   brand's signature shape on Home"). Track + progress arc + knob dot, same
+   language as the big dial: teal normally, volt once today's target is met.
+   The halo circle (paper-tinted, wider+faint, under the coloured arc) is the
+   same trick the wordmark's own text halo uses, so the arc still reads
+   clearly against the hero's teal->pine gradient. Non-interactive. */
+.hc-dial{width:60px;height:60px;flex:none}
+.hc-dial-track{fill:none;stroke:rgba(255,252,245,.22);stroke-width:9}
+.hc-dial-halo{fill:none;stroke:var(--on-accent);opacity:.32;stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset .6s var(--ease-out)}
+.hc-dial-prog{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .6s var(--ease-out),stroke .3s}
+.hc-dial-knobhalo{fill:var(--on-accent);opacity:.9}
+.hc-dial-knob{transition:fill .3s}
+.hc-meta{font-size:13px;font-weight:600;opacity:.85;margin-top:16px}
 .hc-chips{display:flex;gap:8px;margin-top:14px}
 .hc-chip{flex:1;min-height:40px;border:1px solid rgba(255,252,245,.3);background:rgba(255,252,245,.14);border-radius:999px;
-  font-family:Archivo,sans-serif;font-weight:800;font-size:15px;color:#FFFCF5;cursor:pointer;transition:transform .15s var(--ease-out),background .2s}
+  font-family:Archivo,sans-serif;font-weight:800;font-size:15px;color:var(--on-accent);cursor:pointer;transition:transform .15s var(--ease-out),background .2s}
 .hc-chip:active{transform:scale(.94);background:rgba(255,252,245,.26)}
-.btn.hc-cta{width:100%;margin-top:12px;background:var(--volt);color:var(--pine);font-weight:800;border-radius:var(--r-md);box-shadow:0 6px 18px rgba(199,244,100,.3)}
+/* Wave 4: chip disabled for the split-second its own commit is in flight —
+   guards the race where a rapid double-tap could read the same stale
+   "before" tally and silently skip a deserved celebration (see homeQuickAdd) */
+.hc-chip:disabled,.qchip:disabled{opacity:.5;cursor:default;transform:none}
+.btn.hc-cta{width:100%;margin-top:12px;background:var(--volt);color:var(--pine);font-weight:800;border-radius:999px;box-shadow:0 6px 18px rgba(199,244,100,.3)}
 .week-strip{padding:18px 22px 0}
 .ws-head{display:flex;align-items:baseline;justify-content:space-between}
 .ws-summary{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -107,7 +240,7 @@ body{
 .home-crew{padding:20px 22px 0}
 .home-crew .row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--hair);border-radius:var(--r-md);
   box-shadow:var(--shadow-card);padding:11px 12px;margin-bottom:8px;animation:rowIn .4s var(--ease-out) backwards}
-.home-crew .row .avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);color:#FFFCF5;display:flex;align-items:center;justify-content:center;font-size:15px}
+.home-crew .row .avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font-size:15px}
 .home-crew .row .nm{font-weight:700;font-size:15px}
 .home-crew .row .nums{margin-left:auto;font-family:Archivo,sans-serif;font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
 .home-crew .row .nums small{color:var(--muted);font-family:"Instrument Sans",sans-serif;font-weight:600;font-size:12px}
@@ -124,12 +257,14 @@ body{
 
 /* buttons */
 .btn{font-family:"Instrument Sans",sans-serif;font-weight:700;font-size:16px;padding:15px 18px;border:none;text-align:center;cursor:pointer;color:var(--ink);background:transparent;
-  border-radius:var(--r-md);transition:transform .15s var(--ease-out),box-shadow .2s,background .2s}
+  border-radius:999px;transition:transform .15s var(--ease-out),box-shadow .2s,background .2s}
 .btn:active{transform:scale(.965)}
-.btn-primary{background:var(--accent);color:#FFFCF5;letter-spacing:.02em;box-shadow:0 6px 18px rgba(15,122,109,.28)}
+.btn-primary{background:var(--accent);color:var(--on-accent);letter-spacing:.02em;box-shadow:0 6px 18px rgba(15,122,109,.28)}
 .btn-grad{background:var(--grad)}
 .btn-primary:disabled{background:var(--pending);color:var(--muted);cursor:default;box-shadow:none}
 .btn-ghost{border:1px solid var(--hair);background:var(--card);font-weight:600;font-size:14px;padding:12px 18px;box-shadow:var(--shadow-card)}
+.btn-outline{border:2px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:14px;padding:11px 18px}
+.btn-outline:active{background:rgba(15,122,109,.08)}
 .mini-btn{border:1px solid var(--hair);background:var(--card);width:34px;height:34px;font-size:18px;cursor:pointer;border-radius:var(--r-sm);transition:transform .15s}
 .mini-btn:active{transform:scale(.92)}
 
@@ -138,14 +273,14 @@ body{
 .r-lbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 /* twisted-rope strand + fray threads — the athletic rope language */
 .strand{flex:1;height:4px;border-radius:2px;opacity:.75;
-  background:repeating-linear-gradient(65deg,rgba(31,27,22,.42) 0 2.5px,rgba(31,27,22,.08) 2.5px 6px)}
+  background:repeating-linear-gradient(65deg,rgba(var(--texture-rgb),.42) 0 2.5px,rgba(var(--texture-rgb),.08) 2.5px 6px)}
 .knot{position:relative}
 .knot.fray::after{content:"";position:absolute;left:100%;top:50%;width:12px;height:8px;transform:translateY(-50%);
   background:repeating-linear-gradient(0deg,transparent 0 1.5px,rgba(178,58,46,.55) 1.5px 2.5px);
   -webkit-mask:linear-gradient(90deg,#000,transparent);mask:linear-gradient(90deg,#000,transparent)}
 .rope-title{display:flex;align-items:center;gap:10px}
 .rope-title::after{content:"";flex:0 0 46px;height:3.5px;border-radius:2px;opacity:.6;
-  background:repeating-linear-gradient(65deg,rgba(31,27,22,.42) 0 2.2px,rgba(31,27,22,.08) 2.2px 5.5px)}
+  background:repeating-linear-gradient(65deg,rgba(var(--texture-rgb),.42) 0 2.2px,rgba(var(--texture-rgb),.08) 2.2px 5.5px)}
 .knots{display:flex;gap:12px}
 .knot{width:11px;height:11px;border-radius:6px;background:var(--ink)}
 .knot.volt{background:var(--accent);box-shadow:0 0 0 3px rgba(199,244,100,.7)}
@@ -153,18 +288,39 @@ body{
 .knot.fray.at-risk{animation:frayShake 1.6s ease-in-out infinite;transform-origin:center}
 .knot.fray.urgent{animation-duration:.7s;border-width:2px}
 @keyframes frayShake{0%,100%{transform:rotate(0) translateY(0)}25%{transform:rotate(14deg) translateY(-1px)}75%{transform:rotate(-14deg) translateY(1px)}}
-.excuse-tear{width:100%;margin-top:8px;font-size:13px;font-weight:600;color:var(--missed);background:transparent;border:1px dashed var(--missed);border-radius:var(--r-sm);padding:10px}
+/* week-scaled knots (Wave 4): once a streak runs past its first week, the rope
+   shows one knot per completed week instead of one per day — a 60-day streak
+   now looks nothing like a 7-day one. Milestone weeks (every 4th = 28 days,
+   matching the celebration copy) land heavier/bigger; the week still in
+   progress renders as a light dashed "forming" knot; a run past the display
+   cap (renderRope's WEEK_CAP) condenses into one "+N weeks" chip so the rope
+   stays compact even at 100+ days. A streak still inside its first week keeps
+   the original one-knot-per-day read (handled in renderRope, n<=7). */
+.knot.week{width:15px;height:15px;border-radius:8px}
+.knot.week.milestone{width:22px;height:22px;border-radius:11px;box-shadow:0 0 0 3px rgba(199,244,100,.35)}
+.knot.week.partial{background:transparent;border:1.5px dashed var(--ink);opacity:.6;width:11px;height:11px}
+.knot.week.partial.volt{border-color:var(--accent);opacity:.9}
+.knot.week.overflow{width:28px;height:16px;border-radius:8px;background:var(--grad);color:var(--on-accent);
+  display:flex;align-items:center;justify-content:center;font-family:Archivo,sans-serif;font-weight:800;font-size:9px}
+.excuse-tear{width:100%;margin-top:8px;font-size:13px;font-weight:600;color:var(--missed);background:transparent;border:1px dashed var(--missed);border-radius:999px;padding:10px}
 
 /* dial */
+.dial-float{position:absolute;top:24%;left:50%;transform:translateX(-50%);font-family:Archivo,sans-serif;font-weight:900;font-size:34px;
+  color:var(--accent);pointer-events:none;z-index:4;animation:dialFloat .95s var(--ease-out) forwards}
+@keyframes dialFloat{0%{opacity:0;transform:translateX(-50%) translateY(14px) scale(.7)}
+  25%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.08)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-46px) scale(1)}}
+.dial.chip-pulse .ring{animation:chipRingPulse .6s var(--ease-out)}
+@keyframes chipRingPulse{0%{box-shadow:0 0 0 0 rgba(15,122,109,.5)}100%{box-shadow:0 0 0 22px rgba(15,122,109,0)}}
 .dial{position:relative;width:min(332px,86vw);aspect-ratio:1;margin:14px auto 0;touch-action:none;user-select:none;
   filter:drop-shadow(0 22px 44px rgba(15,122,109,.16))}
 .dial::before{content:"";position:absolute;inset:-40px;border-radius:50%;pointer-events:none;
   background:radial-gradient(closest-side,rgba(15,122,109,.10),transparent 72%)}
-.dial .ring{position:absolute;inset:0;border-radius:50%;background:#EDE3D0}
+.dial .ring{position:absolute;inset:0;border-radius:50%;background:var(--dial-ring)}
 .dial .ring::after{content:"";position:absolute;inset:24px;border-radius:50%;background:var(--card);border:1px solid var(--hair);
-  box-shadow:inset 0 4px 18px rgba(31,27,22,.06)}
+  box-shadow:inset 0 4px 18px rgba(var(--shadow-rgb),.06)}
 .dial .ticks{position:absolute;inset:4px;border-radius:50%;pointer-events:none;
-  background:repeating-conic-gradient(rgba(31,27,22,.32) 0 .6deg,transparent .6deg 18deg);
+  background:repeating-conic-gradient(rgba(var(--texture-rgb),.32) 0 .6deg,transparent .6deg 18deg);
   -webkit-mask:radial-gradient(closest-side,transparent calc(100% - 13px),#000 calc(100% - 12px));
   mask:radial-gradient(closest-side,transparent calc(100% - 13px),#000 calc(100% - 12px));}
 .dial .progress-ring{position:absolute;inset:27px;border-radius:50%;pointer-events:none;z-index:1;
@@ -174,84 +330,143 @@ body{
 .dial:not(.dragging) .knob-arm{transition:transform .3s var(--ease-out)}
 .knob{position:absolute;top:-14px;left:50%;transform:translateX(-50%);
   width:54px;height:54px;border-radius:50%;background:var(--volt);
-  border:4px solid #FFFCF5;box-shadow:0 0 0 1px var(--hair),0 6px 16px rgba(31,27,22,.22);
+  border:4px solid var(--on-accent);box-shadow:0 0 0 1px var(--hair),0 6px 16px rgba(var(--shadow-rgb),.22);
   display:flex;align-items:center;justify-content:center;color:var(--pine);font-weight:900;font-size:22px;
   pointer-events:none;transition:box-shadow .2s,transform .2s}
-.dial.dragging .knob{box-shadow:0 0 0 1px var(--hair),0 8px 22px rgba(31,27,22,.3),0 0 0 10px rgba(199,244,100,.22)}
+.dial.dragging .knob{box-shadow:0 0 0 1px var(--hair),0 8px 22px rgba(var(--shadow-rgb),.3),0 0 0 10px rgba(199,244,100,.22)}
 .dial.dragging .knob{background:var(--pine)}
 .dial-center{position:absolute;inset:44px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.compose{font-family:Archivo,sans-serif;font-weight:800;font-size:22px;color:var(--accent);min-height:26px}
+/* the dial is an input device — what you're actively spinning in (compose)
+   is the number that should dominate; the already-banked total (tally) is
+   reference context, so it reads smaller underneath */
+.compose{font-family:Archivo,sans-serif;font-weight:800;font-size:clamp(84px,29vw,116px);line-height:.95;
+  letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--accent);min-height:calc(84px * .95)}
 .compose.neg{color:var(--missed)}
-.tally{font-family:Archivo,sans-serif;font-weight:800;font-size:clamp(84px,29vw,116px);line-height:.95;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.tally{font-family:Archivo,sans-serif;font-weight:800;font-size:22px;font-variant-numeric:tabular-nums}
 .tally.met{color:var(--met)}
 .target-label{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:8px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .target-label .rule{width:34px;height:2px;background:var(--accent)}
 @keyframes voltflash{0%{box-shadow:0 0 0 0 rgba(199,244,100,.9)}100%{box-shadow:0 0 0 46px rgba(199,244,100,0)}}
 .dial.smashed .ring{animation:voltflash .55s ease-out}
 
+/* first-run dial hint: teaches the drag gesture, gone for good after the
+   first successful crank (or a manual dismiss) — hand-made cue, not a SaaS
+   coach-mark bubble: a dashed chalk-arc + a faint volt "ghost" of the knob
+   sweeping the path it wants you to trace. */
+.dial-hint{position:absolute;inset:0;pointer-events:none;z-index:2}
+.dial-hint-ring{position:absolute;inset:18px;border-radius:50%;border:2px dashed rgba(15,122,109,.4);
+  animation:dialHintSpin 7s linear infinite}
+@keyframes dialHintSpin{to{transform:rotate(360deg)}}
+.dial-hint-ghost{position:absolute;top:0;left:50%;width:26px;height:26px;margin:-13px 0 0 -13px;
+  border-radius:50%;background:var(--volt);opacity:.55;box-shadow:0 0 0 4px var(--on-accent);
+  offset-path:circle(42% at 50% 50%);
+  animation:dialHintOrbit 3.4s cubic-bezier(.4,0,.2,1) infinite,dialHintPulse 1.7s ease-in-out infinite}
+@keyframes dialHintOrbit{0%,10%{offset-distance:0%}62%,100%{offset-distance:64%}}
+@keyframes dialHintPulse{0%,100%{transform:scale(.85);opacity:.4}50%{transform:scale(1.18);opacity:.75}}
+.dial-hint-note{display:flex;align-items:center;justify-content:center;gap:8px;
+  font-size:13px;font-weight:600;color:var(--muted);text-align:center;margin:12px 22px 0}
+.dial-hint-note button{border:none;background:none;color:var(--muted);font-size:13px;line-height:1;
+  cursor:pointer;padding:6px;flex:none}
+
 .quick-chips{display:flex;gap:10px;justify-content:center;padding:20px 22px 0}
 .qchip{flex:0 1 96px;min-height:44px;border:1px solid var(--hair);background:var(--card);border-radius:999px;
   font-family:Archivo,sans-serif;font-weight:800;font-size:16px;color:var(--accent);cursor:pointer;
   box-shadow:var(--shadow-card);transition:transform .15s var(--ease-out),background .2s}
-.qchip:active{transform:scale(.94);background:#F1EADB}
-.ob-fine{font-size:12.5px;color:var(--muted);line-height:1.5;margin:-14px 0 22px}
+.qchip:active{transform:scale(.94);background:var(--chip-active-bg)}
 /* council a11y fixes */
 .state-chip.bg-pending,.state-chip.bg-excused{color:var(--ink)}
 .mini-btn{width:44px;height:44px}
 #ih-close{padding:12px;min-width:44px;min-height:44px}
 /* Home order is fixed: your own card first, then the team (owner decision — solo is first-class) */
-.bank-zone{padding:14px 22px 0}
-.bank-zone .btn{width:100%;min-height:54px}
+/* bank-btn is now an icon disc, not a width:100% block button — centre it
+   instead of letting it default to flex-start */
+.bank-zone{padding:14px 22px 0;display:flex;justify-content:center}
 
-/* ledger */
+/* ledger — the "ledger" in fridge-ledger: banked sets as real, full-width ink
+   tally marks (4 verticals + a diagonal 5th strike), not a 3px sliver hidden
+   behind overflow:hidden (council: "throwing away the concept the app is
+   named after"). The head row (reps/late/time) sits above the stamp strip so
+   the strip is free to wrap under it on a big (100+) day without breaking
+   the row or overflowing the card. */
 .ledger{padding:18px 22px 0;position:relative}
-.l-rows{display:flex;flex-direction:column;gap:8px}
-.l-row{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--hair);padding:9px 12px;gap:10px;
+.l-rows{display:flex;flex-direction:column;gap:10px}
+.l-row{display:flex;flex-direction:column;gap:10px;background:var(--card);border:1px solid var(--hair);padding:11px 13px;
   border-radius:var(--r-sm);box-shadow:var(--shadow-card);animation:rowIn .4s var(--ease-out) backwards}
 .l-row:nth-child(1){animation-delay:.02s}.l-row:nth-child(2){animation-delay:.07s}.l-row:nth-child(3){animation-delay:.12s}.l-row:nth-child(4){animation-delay:.17s}
 @keyframes rowIn{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
 .l-row:nth-child(odd){transform:rotate(-.35deg)}
 .l-row:nth-child(even){transform:rotate(.35deg)}
+.l-row-head{display:flex;align-items:center;gap:10px}
 .l-row .reps{font-family:Archivo,sans-serif;font-weight:800;font-size:19px;font-variant-numeric:tabular-nums;min-width:34px}
 .l-row .reps.neg{color:var(--missed)}
-.l-row .t{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.l-row .t{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;margin-left:auto}
 .l-row .late{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--excused);border:1px solid var(--excused);padding:1px 5px}
-.stamps{display:flex;gap:3px;align-items:center;flex:1;flex-wrap:wrap;max-height:34px;overflow:hidden}
-.stamp{width:3px;height:14px;background:var(--ink);opacity:.85;border-radius:1px;transform:rotate(-2deg)}
-.stamp:nth-child(2n){transform:rotate(3deg);height:13px}
-.stamp.five{width:20px;height:2.5px;transform:rotate(-58deg) translateX(-8px);margin-left:-19px}
+.stamps{display:flex;gap:5px 6px;align-items:flex-end;width:100%;flex-wrap:wrap}
+.stamp{width:4.5px;height:22px;background:var(--ink);opacity:.85;border-radius:1.5px;transform:rotate(-2deg);flex:none}
+.stamp:nth-child(2n){transform:rotate(3deg)}
+.stamp:nth-child(5n){margin-right:10px}
+.stamp.five{width:30px;height:3.5px;transform:translateX(-13px) rotate(-58deg);margin-left:-28px;margin-right:10px;align-self:center}
+/* thump: a fresh stamp snaps in the moment a new set lands — scale/rotate
+   settle, staggered per-tick via an inline animation-delay set in app.js.
+   Sets already on the ledger the first time a day is rendered never carry
+   this class (seen-once guard in app.js keeps it a one-time entrance, not a
+   replay on every re-render). */
+@keyframes stampThump{0%{transform:scale(.3) rotate(-24deg);opacity:0}58%{transform:scale(1.2) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(-1deg);opacity:1}}
+.stamp.thump{animation:stampThump .36s var(--ease-out) backwards}
+@keyframes stampThumpFive{0%{transform:scale(.3) translateX(-13px) rotate(-58deg);opacity:0}58%{transform:scale(1.25) translateX(-13px) rotate(-58deg);opacity:1}100%{transform:scale(1) translateX(-13px) rotate(-58deg);opacity:1}}
+.stamp.five.thump{animation:stampThumpFive .36s var(--ease-out) backwards}
 .l-empty{font-size:14px;color:var(--muted);padding:6px 0}
 
 /* post-it */
 .postit{font-family:Caveat,cursive;font-weight:600;font-size:18px;line-height:1.15;
   background:var(--postit);color:var(--postit-ink);padding:12px 14px 14px;width:170px;
-  border-radius:2px;box-shadow:0 8px 20px rgba(31,27,22,.14);animation:peelIn .5s var(--ease-out) .15s backwards;transform-origin:top center}
+  border-radius:2px;box-shadow:0 8px 20px rgba(var(--shadow-rgb),.14);animation:peelIn .5s var(--ease-out) .15s backwards;transform-origin:top center}
 @keyframes peelIn{from{opacity:0;transform:rotate(-8deg) translateY(-14px) scale(.9)}to{opacity:1}}
-.postit small{display:block;font-family:"Instrument Sans",sans-serif;font-weight:700;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#8A6D1E;margin-bottom:4px}
+.postit small{display:block;font-family:"Instrument Sans",sans-serif;font-weight:700;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--postit-ink-soft);margin-bottom:4px}
 #mate-postit-zone{display:flex;justify-content:flex-end;margin-top:10px}
 #mate-postit-zone .postit{transform:rotate(3deg)}
 
 .today-actions{display:flex;gap:10px;padding:16px 22px 12px;margin-top:auto}
 .today-actions .btn{flex:1}
 
-/* crew */
-#crew-cards{display:flex;flex-direction:column;gap:14px;padding:12px 22px 0}
-.crew-card{background:var(--card);border:1px solid var(--hair);padding:16px;position:relative;
+/* crew — the corkboard/fridge-door (Wave 4 rebuild): avatars are the
+   dominant visual per member card, a coloured ring on the avatar reads
+   today's state at a glance (met/rest/excused/missed/pending, matching the
+   day-state colours + shapes used everywhere else), and any excuse renders
+   as a genuinely pinned post-it — real Caveat scale, not a tucked-away
+   corner chip. Each card gets a top pin + a slight rotation jitter so the
+   whole screen reads as tacked to a board, not a flat settings list. */
+#crew-cards{display:flex;flex-direction:column;gap:18px;padding:14px 22px 0}
+.crew-card{background:var(--card);border:1px solid var(--hair);padding:18px;position:relative;
   border-radius:var(--r-lg);box-shadow:var(--shadow-card);animation:rowIn .45s var(--ease-out) backwards}
-.crew-card:nth-child(2){animation-delay:.08s}.crew-card:nth-child(3){animation-delay:.16s}
-.crew-card .who{display:flex;align-items:center;gap:10px}
-.crew-card .avatar{width:38px;height:38px;border-radius:50%;background:var(--grad);color:#FFFCF5;display:flex;align-items:center;justify-content:center;font-size:19px}
-.crew-card .nm{font-family:Archivo,sans-serif;font-weight:800;font-size:18px;letter-spacing:-.01em}
-.crew-card .sub{font-size:12px;color:var(--muted);font-weight:600}
-.crew-card .big{display:flex;align-items:baseline;gap:8px;margin-top:10px}
-.crew-card .big .n{font-family:Archivo,sans-serif;font-weight:800;font-size:52px;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
-.crew-card .big .of{font-size:14px;color:var(--muted);font-weight:600}
-.state-chip{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#FFFCF5;padding:3px 8px;margin-left:auto}
-.strip{display:flex;gap:6px;margin-top:12px}
+.crew-card:nth-child(odd){transform:rotate(-.6deg)}
+.crew-card:nth-child(even){transform:rotate(.6deg)}
+.crew-card:nth-child(2){animation-delay:.08s}.crew-card:nth-child(3){animation-delay:.16s}.crew-card:nth-child(4){animation-delay:.24s}
+/* corner pin — reads as tacked to the board, echoes the post-it pin below */
+.crew-card::before{content:"";position:absolute;top:-7px;left:28px;width:13px;height:13px;border-radius:50%;
+  background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.9),var(--ink) 65%);
+  box-shadow:0 2px 4px rgba(var(--shadow-rgb),.4);z-index:2}
+.crew-card .cc-top{display:flex;align-items:center;gap:14px}
+.crew-card .avatar.cc-avatar{width:88px;height:88px;border-radius:50%;background:var(--grad);color:var(--on-accent);
+  display:flex;align-items:center;justify-content:center;font-size:40px;flex:none;position:relative}
+.crew-card .avatar.cc-avatar::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:3px solid transparent;pointer-events:none}
+.crew-card .avatar.cc-avatar.st-met::after{border-color:var(--met)}
+.crew-card .avatar.cc-avatar.st-rest::after{border-color:var(--rest)}
+.crew-card .avatar.cc-avatar.st-excused::after{border-color:var(--excused)}
+.crew-card .avatar.cc-avatar.st-missed::after{border-color:var(--missed)}
+.crew-card .avatar.cc-avatar.st-pending::after{border-color:var(--pending);border-style:dashed}
+.cc-info{flex:1;min-width:0}
+.cc-name-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.crew-card .nm{font-family:Archivo,sans-serif;font-weight:800;font-size:19px;letter-spacing:-.01em}
+.crew-card .sub{font-size:12px;color:var(--muted);font-weight:600;margin-top:4px}
+.crew-card .big{display:flex;align-items:baseline;gap:8px;margin-top:6px}
+.crew-card .big .n{font-family:Archivo,sans-serif;font-weight:800;font-size:44px;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.crew-card .big .of{font-size:13px;color:var(--muted);font-weight:600}
+.state-chip{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--on-accent);padding:3px 8px;margin-left:auto}
+.strip{display:flex;gap:6px;margin-top:14px}
 .strip .cell{flex:1;height:9px}
-.crew-card .totals{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--muted);font-weight:600}
-.crew-card .totals b{color:var(--ink);font-variant-numeric:tabular-nums}
-.crew-card .postit{position:absolute;right:10px;top:8px;width:150px;font-size:16px;transform:rotate(3deg)}
+.cc-postit{display:flex;justify-content:flex-end;margin-top:14px}
+.crew-card .postit{position:static;width:auto;max-width:210px;font-size:20px;transform:rotate(2.5deg)}
 .crew-invite{margin:18px 22px 0;padding:16px;border:1px dashed var(--hair)}
 .crew-invite p{font-size:13.5px;color:var(--muted);margin-bottom:10px}
 
@@ -275,17 +490,17 @@ body{
 .hist-detail .rows{font-size:13.5px;line-height:1.7}
 .hist-detail .excuse-quote{font-family:Caveat,cursive;font-size:20px;color:var(--postit-ink);background:var(--postit);display:inline-block;padding:6px 10px;transform:rotate(-1.5deg);margin-top:6px}
 .hist-add{margin-top:10px;display:flex;gap:8px}
-.hist-add input{width:80px;padding:8px;border:1px solid var(--hair);font-family:Archivo,sans-serif;font-weight:700;font-size:16px;text-align:center;background:#fff}
+.hist-add input{width:80px;padding:8px;border:1px solid var(--hair);font-family:Archivo,sans-serif;font-weight:700;font-size:16px;text-align:center;background:var(--card)}
 .legend{display:flex;gap:12px;justify-content:center;padding:12px 22px;font-size:11px;color:var(--muted)}
 .legend .dot{display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:4px}
 .dot.met{background:var(--met)}.dot.rest{background:var(--rest)}.dot.excused{background:var(--excused)}.dot.missed{background:var(--missed)}.dot.pending{background:var(--pending)}
 /* colourblind-safe: each day-state gets a distinct SHAPE, not just a colour */
 .ws-dot{width:9px;height:9px;border-radius:4px}
-.hist-cell .st.bg-met,.legend .dot.met,.ws-dot.bg-met{border-radius:50%}
-.hist-cell .st.bg-rest,.legend .dot.rest,.ws-dot.bg-rest{border-radius:1.5px}
-.hist-cell .st.bg-excused,.legend .dot.excused,.ws-dot.bg-excused{border-radius:1.5px;transform:rotate(45deg)}
-.hist-cell .st.bg-missed,.legend .dot.missed,.ws-dot.bg-missed{width:11px;height:3px;border-radius:1.5px}
-.hist-cell .st.bg-pending,.legend .dot.pending,.ws-dot.bg-pending{background:transparent;border:2px solid var(--pending);width:7px;height:7px}
+.hist-cell .st.bg-met,.legend .dot.met,.ws-dot.bg-met,.rt.bg-met{border-radius:50%}
+.hist-cell .st.bg-rest,.legend .dot.rest,.ws-dot.bg-rest,.rt.bg-rest{border-radius:1.5px}
+.hist-cell .st.bg-excused,.legend .dot.excused,.ws-dot.bg-excused,.rt.bg-excused{border-radius:1.5px;transform:rotate(45deg)}
+.hist-cell .st.bg-missed,.legend .dot.missed,.ws-dot.bg-missed,.rt.bg-missed{width:11px;height:3px;border-radius:1.5px}
+.hist-cell .st.bg-pending,.legend .dot.pending,.ws-dot.bg-pending,.rt.bg-pending{background:transparent;border:2px solid var(--pending);width:7px;height:7px}
 .local-banner{display:flex;align-items:center;gap:8px;justify-content:space-between}
 #lb-close{border:none;background:none;color:var(--rest);font-size:13px;cursor:pointer;padding:6px;min-width:32px}
 .bg-met{background:var(--met)}.bg-rest{background:var(--rest)}.bg-excused{background:var(--excused)}.bg-missed{background:var(--missed)}.bg-pending{background:var(--pending)}
@@ -293,31 +508,43 @@ body{
 /* settings */
 .set-card{margin:12px 22px 0;padding:16px;background:var(--card);border:1px solid var(--hair);border-radius:var(--r-lg);box-shadow:var(--shadow-card)}
 .set-card .lbl{display:flex;justify-content:space-between;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;font-weight:600;color:var(--ink);margin:10px 0 0}
-.set-card input{width:130px;padding:9px;border:1px solid var(--hair);background:#fff;font-family:Archivo,sans-serif;font-weight:700;font-size:15px;text-align:center;color:var(--ink)}
-.set-card input[type=date],#set-crewname{font-family:"Instrument Sans",sans-serif;font-weight:600;text-align:left}
-#set-save{margin:16px 22px 0}
+.set-card input{width:130px;padding:9px;border:1px solid var(--hair);background:var(--card);font-family:Archivo,sans-serif;font-weight:700;font-size:15px;text-align:center;color:var(--ink)}
+.set-card input[type=date],#set-crewname,#set-name{font-family:"Instrument Sans",sans-serif;font-weight:600;text-align:left}
+.set-card .avatars,.set-card .color-dots{margin-top:12px}
+/* set-profile-save/set-save are now icon discs, not width:100% block
+   buttons — .set-action-row lays each one out beside its feedback hint
+   (#set-profile-msg / #set-msg) instead of stacking hint below a full-width
+   button. Two contexts need two margins: inside .set-card the card's own
+   16px padding already provides the horizontal inset; outside it (the
+   set-save row sits directly in #screen-settings) the row needs its own
+   horizontal margin to match the screen's other content. */
+.set-action-row{display:flex;align-items:center;gap:14px}
+.set-action-row .hint{margin-top:0}
+.set-card .set-action-row{margin-top:16px}
+#screen-settings>.set-action-row{margin:16px 22px 0}
 #set-switch{margin:10px 22px 0}
 .danger-zone{margin-top:28px;border-color:rgba(178,58,46,.35)}
 .danger-zone .l-title{color:var(--missed)}
 .danger-zone .hint{margin-top:4px}
 .btn.danger{width:100%;margin-top:10px;color:var(--missed);border-color:rgba(178,58,46,.4)}
 .btn.danger:active{background:rgba(178,58,46,.08)}
-#set-msg{padding:0 22px}
+#sim-date-card #set-sim-clear,#state-dump-card #state-dump-refresh{width:100%;margin-top:10px}
+.state-dump-pre{margin-top:10px;padding:10px;max-height:260px;overflow:auto;background:var(--paper);border:1px solid var(--hair);border-radius:var(--r-sm);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.5;color:var(--ink);white-space:pre-wrap;word-break:break-word}
 
 /* tabbar */
-/* Floating Dock (Aceternity-inspired, vanilla): floating pill, proximity magnify */
+/* floating tab pill: fixed dock, blurred paper glass, active tab glows teal->pine */
 .tabbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:40;
   display:flex;gap:2px;align-items:flex-end;padding:8px 10px;border:1px solid var(--hair);border-radius:999px;
-  background:rgba(255,252,245,.88);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
-  box-shadow:0 10px 34px rgba(31,27,22,.16)}
+  background:var(--tabbar-bg);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  box-shadow:0 10px 34px rgba(var(--shadow-rgb),.16)}
 .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:56px;padding:7px 0;border-radius:999px;
-  transition:color .25s,background .25s,box-shadow .25s;
-  transform:scale(var(--mag,1)) translateY(calc((1 - var(--mag,1)) * 14px));transform-origin:bottom center;will-change:transform}
+  transition:color .25s,background .25s,box-shadow .25s,transform .28s var(--ease-out)}
 .tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.tab.on{color:#FFFCF5;background:var(--grad);box-shadow:0 6px 16px rgba(15,122,109,.32)}
-.tab.on svg{animation:tabPop .35s var(--ease-out)}
-@keyframes tabPop{50%{transform:scale(1.18)}}
-.tabbar:not(.magnifying) .tab{transition:color .25s,background .25s,box-shadow .25s,transform .3s var(--ease-out)}
+.tab.on{color:var(--on-accent);background:var(--grad);transform:translateY(-2px) scale(1.06);
+  box-shadow:0 6px 16px rgba(15,122,109,.32),0 0 0 2px #1BC79E,0 0 7px 1px rgba(27,199,158,.75)}
+.tab.on svg{animation:tabPop .42s var(--ease-out)}
+.tab:active{transform:scale(.9)}
+@keyframes tabPop{0%{transform:scale(.7)}55%{transform:scale(1.25)}100%{transform:scale(1)}}
 .screen{padding-bottom:calc(124px + env(safe-area-inset-bottom))}
 body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 .tab{flex:1;text-align:center;font-family:"Instrument Sans",sans-serif;font-size:11px;font-weight:700;color:var(--muted);border:none;background:none;cursor:pointer;letter-spacing:.02em}
@@ -325,55 +552,55 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 /* install hint */
 .install-hint{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;
   max-width:406px;margin:0 auto;display:flex;align-items:center;gap:10px;
-  background:var(--grad);color:#FFFCF5;padding:14px 14px 14px 16px;box-shadow:0 6px 24px rgba(31,27,22,.25)}
+  background:rgba(var(--card-rgb),.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  color:var(--ink);padding:14px 14px 14px 16px;box-shadow:0 6px 24px rgba(var(--shadow-rgb),.25)}
 .install-hint .ih-body{display:flex;flex-direction:column;gap:3px;font-size:13.5px;line-height:1.35}
 .install-hint .ih-body>b{font-family:Archivo,sans-serif;font-weight:800;font-size:15px;letter-spacing:.01em}
-.install-hint .ih-icon{display:inline-block;transform:rotate(-90deg);font-weight:700}
-.install-hint b{color:var(--volt)}
-#ih-close{margin-left:auto;border:none;background:transparent;color:#FFFCF5;font-size:16px;cursor:pointer;padding:6px}
+/* real iOS share-sheet glyph (box + upward arrow), inline SVG — replaces the
+   old rotated ⎋ (Unicode ESCAPE key) fake, which never actually looked like
+   Apple's icon. Stroke weight matches the tab-bar/menu icon line style. */
+.install-hint .ih-icon{display:inline-flex;vertical-align:-3px;width:15px;height:15px;flex:none}
+.install-hint .ih-icon svg{width:100%;height:100%;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.install-hint b{color:var(--accent)}
+#ih-close{margin-left:auto;border:none;background:transparent;color:var(--ink);font-size:16px;cursor:pointer;padding:6px}
 
-/* sparkles: volt burst on target smash (Aceternity Sparkles, vanilla) */
-.spark{position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;pointer-events:none;z-index:5;
-  background:var(--volt);animation:sparkFly .75s var(--ease-out) forwards}
-.spark.teal{background:var(--accent)}
-@keyframes sparkFly{
-  0%{transform:translate(-50%,-50%) scale(1);opacity:1}
-  100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.15);opacity:0}}
+/* knot shimmer: the live-streak knot pulses volt (native brand motion, not a spark effect) */
 .knot.volt{animation:knotShimmer 2.6s ease-in-out infinite}
 @keyframes knotShimmer{50%{box-shadow:0 0 0 5px rgba(199,244,100,.45)}}
 
-/* animated tooltip on avatars (Aceternity Animated Tooltip, vanilla) */
-.av-tip{position:fixed;z-index:80;background:var(--ink);color:#FFFCF5;padding:10px 14px;border-radius:12px;
-  box-shadow:var(--shadow-pop);font-size:12.5px;line-height:1.4;pointer-events:none;max-width:220px;
-  transform-origin:bottom center;animation:tipPop .35s cubic-bezier(.2,1.6,.4,1)}
-.av-tip b{font-family:Archivo,sans-serif;font-weight:800;font-size:14px;display:block}
-.av-tip .tip-volt{color:var(--volt);font-weight:700}
-.av-tip::after{content:"";position:absolute;left:50%;bottom:-5px;transform:translateX(-50%) rotate(45deg);width:10px;height:10px;background:var(--ink)}
-@keyframes tipPop{from{opacity:0;transform:scale(.5) rotate(-7deg) translateY(8px)}to{opacity:1;transform:none}}
-
-/* vanishing excuse input (Aceternity Placeholders & Vanish Input, vanilla) */
-.excuse-wrap{position:relative}
-.excuse-ghost{position:absolute;inset:0;pointer-events:none;font-family:Caveat,cursive;font-weight:600;font-size:24px;line-height:1.25;color:#B99B4E;overflow:hidden}
-.excuse-ghost span{display:block;animation:ghostCycle 3s ease-in-out infinite}
-@keyframes ghostCycle{0%{opacity:0;transform:translateY(10px)}12%,78%{opacity:1;transform:none}90%,100%{opacity:0;transform:translateY(-10px)}}
-.excuse-canvas{position:absolute;inset:0;pointer-events:none}
-.excuse-input.vanishing{color:transparent;caret-color:transparent}
-
-/* animated avatar art */
+/* animated avatar art — bold, full-shape motion (Wave 7 amplification pass).
+   Convention: `.av svg .aa-x{...}` (never bare `[class^="aa-"]`) whenever a
+   rule needs a CUSTOM transform-origin — the bare-selector specificity trap
+   is documented in HANDOVER.md. Bare `.aa-x{animation:...}` is fine when the
+   element's own fill-box center (the generic fallback below) is the right
+   pivot. Everything here dies under prefers-reduced-motion (top of file). */
 .av{display:inline-flex;width:100%;height:100%;align-items:center;justify-content:center}
 .av svg{width:78%;height:78%;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .av svg [class^="aa-"]{transform-box:fill-box;transform-origin:center}
 .av svg .aa-pump{transform-box:view-box;transform-origin:9px 33px;animation:aaPump 1.2s ease-in-out infinite}
-@keyframes aaPump{50%{transform:rotate(8deg)}}
+@keyframes aaPump{0%,100%{transform:rotate(0deg)}50%{transform:rotate(16deg)}}
 /* forearm pivots at the drawn elbow (26,24) so it never detaches from the upper arm */
 .av svg .aa-flex{transform-box:view-box;transform-origin:26px 24px;animation:aaFlex 1.5s ease-in-out infinite}
 @keyframes aaFlex{50%{transform:rotate(-32deg)}}
-.aa-brow{animation:aaBrow 2.4s ease-in-out infinite}
-@keyframes aaBrow{50%{transform:translateY(1.4px)}}
+/* grit + beast (Wave 7): the old 1.4px brow nudge was imperceptible at 88px.
+   Brow now furrows hard; grit additionally head-shakes with gritted teeth,
+   beast head-bobs with wiggling horns and an opening-mouth roar. */
+.aa-brow{animation:aaBrow 1.6s ease-in-out infinite}
+@keyframes aaBrow{0%,100%{transform:translateY(0) scaleY(1)}50%{transform:translateY(3px) scaleY(1.2)}}
 .aa-sweat{animation:aaSweat 2s ease-in infinite}
 @keyframes aaSweat{0%{transform:translateY(0);opacity:0}25%{opacity:1}100%{transform:translateY(11px);opacity:0}}
 .aa-bolt{fill:currentColor;fill-opacity:.15;animation:aaPulse 1.2s ease-in-out infinite}
-@keyframes aaPulse{50%{transform:scale(1.14)}}
+@keyframes aaPulse{0%,100%{transform:scale(1);fill-opacity:.15}50%{transform:scale(1.22);fill-opacity:.45}}
+.aa-gritShake{animation:aaGritShake 1.6s ease-in-out infinite}
+@keyframes aaGritShake{0%,100%{transform:translateX(0) rotate(0deg)}20%{transform:translateX(-1.8px) rotate(-2deg)}40%{transform:translateX(1.6px) rotate(2deg)}60%{transform:translateX(-1.3px) rotate(-1.2deg)}80%{transform:translateX(1px) rotate(1deg)}}
+.aa-beastShake{animation:aaBeastShake 1.4s ease-in-out infinite}
+@keyframes aaBeastShake{0%,100%{transform:translateY(0) rotate(0deg) scale(1)}25%{transform:translateY(-1.6px) rotate(-2.5deg) scale(1.03)}50%{transform:translateY(.5px) rotate(2.5deg)}75%{transform:translateY(-1px) rotate(-1.2deg)}}
+.av svg .aa-hornL{transform-box:view-box;transform-origin:17px 11px;animation:aaHornL 1.4s ease-in-out infinite}
+@keyframes aaHornL{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-12deg)}}
+.av svg .aa-hornR{transform-box:view-box;transform-origin:31px 11px;animation:aaHornR 1.4s ease-in-out infinite}
+@keyframes aaHornR{0%,100%{transform:rotate(0deg)}50%{transform:rotate(12deg)}}
+.aa-roar{animation:aaRoar 1.4s ease-in-out infinite}
+@keyframes aaRoar{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.7)}}
 /* star jump: pencil pose at rest, limbs snap out to the star at the jump's apex */
 .av svg .aa-sprBody{animation:aaJump 1.1s ease-in-out infinite}
 @keyframes aaJump{50%{transform:translateY(-3.5px)}}
@@ -385,17 +612,48 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 @keyframes aaSprLL{0%,100%{transform:rotate(-34deg)}50%{transform:rotate(0deg)}}
 .av svg .aa-sprLegR{transform-box:view-box;transform-origin:24px 27px;animation:aaSprLR 1.1s ease-in-out infinite}
 @keyframes aaSprLR{0%,100%{transform:rotate(34deg)}50%{transform:rotate(0deg)}}
-/* zen: whole torso rises and swells from the seat — a visible breath */
-.av svg .aa-zenTorso{transform-box:view-box;transform-origin:24px 30px;animation:aaBreath 3s ease-in-out infinite}
-@keyframes aaBreath{50%{transform:translateY(-1.6px) scale(1.05)}}
-.aa-rock{animation:aaRock 1.7s ease-in-out infinite}
-@keyframes aaRock{25%{transform:rotate(9deg)}75%{transform:rotate(-9deg)}}
-.aa-flick{animation:aaFlick 1.3s ease-in-out infinite}
-@keyframes aaFlick{35%{transform:scaleY(1.08) skewX(2deg)}70%{transform:scaleY(.95) skewX(-2deg)}}
-.aa-twinkle{animation:aaTwinkle 2.2s ease-in-out infinite}
-@keyframes aaTwinkle{50%{transform:rotate(12deg) scale(1.08)}}
-.aa-flag{animation:aaFlag 1.8s ease-in-out infinite;transform-origin:left bottom}
-@keyframes aaFlag{50%{transform:skewY(6deg)}}
+/* zen (Wave 7 rework): whole seated figure genuinely levitates off its base
+   with a visible breath swell; the ground shadow squashes/fades in the
+   opposite phase to sell the float — the old torso-only 1.6px nudge read
+   as static at 88px. */
+.av svg .aa-zenBody{transform-box:view-box;transform-origin:24px 20px;animation:aaZenFloat 3.2s ease-in-out infinite}
+@keyframes aaZenFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.06)}}
+.aa-zenShadow{animation:aaZenShadow 3.2s ease-in-out infinite}
+@keyframes aaZenShadow{0%,100%{transform:scaleX(1);opacity:.35}50%{transform:scaleX(.6);opacity:.15}}
+/* bell (Wave 7 rework): the whole housing rocks hard, an inner clapper swings
+   independently (layered secondary motion), sound-lines pop at the corners
+   on each ring — the old ±9deg rock alone read as subtle. */
+.av svg .aa-rock{transform-box:view-box;transform-origin:24px 33px;animation:aaRock 1.5s ease-in-out infinite}
+@keyframes aaRock{0%,100%{transform:rotate(-16deg)}50%{transform:rotate(16deg)}}
+.av svg .aa-clapper{transform-box:view-box;transform-origin:24px 21px;animation:aaClapper .75s ease-in-out infinite}
+@keyframes aaClapper{0%,100%{transform:rotate(20deg)}50%{transform:rotate(-20deg)}}
+.aa-ringL,.aa-ringR{animation:aaRing 1.5s ease-in-out infinite}
+@keyframes aaRing{0%,15%{opacity:0;transform:scale(.6)}30%{opacity:1;transform:scale(1.25)}50%,100%{opacity:0;transform:scale(.6)}}
+/* flame (Wave 7 rework): the outer tongue flickers with squash/skew, two side
+   tongues lick at offset phases (separate paths, desynced timing), and the
+   inner core pulses independently — reads as a living fire, not a single
+   subtle sway. */
+.av svg .aa-flick{transform-box:view-box;transform-origin:24px 30px;animation:aaFlick 1.5s ease-in-out infinite}
+@keyframes aaFlick{0%,100%{transform:scaleY(1) skewX(0deg) scaleX(1)}30%{transform:scaleY(1.2) skewX(4deg) scaleX(.92)}60%{transform:scaleY(.86) skewX(-5deg) scaleX(1.08)}80%{transform:scaleY(1.1) skewX(2deg) scaleX(.96)}}
+.av svg .aa-tongueL{transform-box:view-box;transform-origin:17px 29px;animation:aaTongueL 1.8s ease-in-out infinite}
+@keyframes aaTongueL{0%,100%{transform:scaleY(.8) rotate(-5deg);opacity:.45}50%{transform:scaleY(1.3) rotate(7deg);opacity:.85}}
+.av svg .aa-tongueR{transform-box:view-box;transform-origin:31px 29px;animation:aaTongueR 2s ease-in-out infinite;animation-delay:-.7s}
+@keyframes aaTongueR{0%,100%{transform:scaleY(.8) rotate(5deg);opacity:.45}50%{transform:scaleY(1.3) rotate(-7deg);opacity:.85}}
+.aa-core{animation:aaCore 1s ease-in-out infinite}
+@keyframes aaCore{0%,100%{transform:scale(1);opacity:.75}50%{transform:scale(1.3);opacity:1}}
+.aa-twinkle{animation:aaTwinkle 1.8s ease-in-out infinite}
+@keyframes aaTwinkle{0%,100%{transform:rotate(0deg) scale(1)}50%{transform:rotate(18deg) scale(1.22)}}
+.aa-glintA{animation:aaGlint 1.8s ease-in-out infinite}
+.aa-glintB{animation:aaGlint 1.8s ease-in-out infinite;animation-delay:-.9s}
+@keyframes aaGlint{0%,40%{opacity:0;transform:scale(.5)}55%{opacity:1;transform:scale(1.2)}70%,100%{opacity:0;transform:scale(.5)}}
+/* peak (Wave 7 rework): the flag genuinely snaps in a gust (two overlapping
+   layers, desynced, fake a real ripple) and the pole flexes at its base —
+   the old single skewY sway was nearly static. */
+.av svg .aa-pole{transform-box:view-box;transform-origin:20px 14px;animation:aaPoleFlex 2.2s ease-in-out infinite}
+@keyframes aaPoleFlex{0%,100%{transform:rotate(0deg)}50%{transform:rotate(5deg)}}
+.av svg .aa-flagA{transform-box:view-box;transform-origin:20px 9px;animation:aaFlagRipple 1.1s ease-in-out infinite}
+.av svg .aa-flagB{transform-box:view-box;transform-origin:20px 9px;animation:aaFlagRipple 1.1s ease-in-out infinite;animation-delay:-.35s}
+@keyframes aaFlagRipple{0%,100%{transform:skewY(0deg) scaleX(1)}25%{transform:skewY(16deg) scaleX(.82)}50%{transform:skewY(-5deg) scaleX(1.1)}75%{transform:skewY(11deg) scaleX(.9)}}
 /* runner: legs scissor alternately at the hip (22,26); torso stays put */
 .av svg .aa-runLegF{transform-box:view-box;transform-origin:22px 26px;animation:aaRunLeg .9s ease-in-out infinite}
 .av svg .aa-runLegB{transform-box:view-box;transform-origin:22px 26px;animation:aaRunLeg .9s ease-in-out infinite;animation-delay:-.45s}
@@ -408,13 +666,43 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 .av svg .aa-slide{animation:aaSlide 2.4s linear infinite}
 .av svg .aa-slide2{animation:aaSlide 3s linear infinite reverse}
 @keyframes aaSlide{to{transform:translateX(-14px)}}
+
+/* ---- Wave 7: 6 new non-fitness avatars (additive; existing 14 ids/order untouched) ---- */
+/* rocket: whole body rumbles on the pad, exhaust stretches, twin puffs billow */
+.aa-rocketBody{animation:aaRocketRumble 1.7s ease-in-out infinite}
+@keyframes aaRocketRumble{0%,100%{transform:translate(0,0) rotate(0deg)}20%{transform:translate(-1px,.5px) rotate(-2deg)}40%{transform:translate(1px,-.5px) rotate(2deg)}60%{transform:translate(-.8px,.5px) rotate(-1.5deg)}80%{transform:translate(.6px,0) rotate(1deg)}}
+.av svg .aa-flameMain{transform-box:view-box;transform-origin:24px 29px;animation:aaFlameMain 1.7s ease-in-out infinite}
+@keyframes aaFlameMain{0%,100%{transform:scaleY(1) scaleX(1)}50%{transform:scaleY(1.45) scaleX(.78)}}
+.aa-puffL{animation:aaPuff 1.7s ease-in-out infinite}
+.aa-puffR{animation:aaPuff 1.7s ease-in-out infinite;animation-delay:-.55s}
+@keyframes aaPuff{0%,100%{opacity:0;transform:translateY(0) scale(.5)}40%{opacity:.7;transform:translateY(4px) scale(1)}80%{opacity:0;transform:translateY(9px) scale(1.3)}}
+/* paw: gentle stamp — presses down and springs back, like a fresh print landing */
+.av svg .aa-pawStamp{transform-box:fill-box;transform-origin:center;animation:aaPawStamp 1.6s ease-in-out infinite}
+@keyframes aaPawStamp{0%,60%,100%{transform:scale(1)}75%{transform:scale(.88)}88%{transform:scale(1.04)}}
+/* robot: antenna bobs on its spring (ball travels with it in the same group), eyes blink on a slower cadence */
+.av svg .aa-antenna{transform-box:view-box;transform-origin:24px 14px;animation:aaAntenna 1.6s ease-in-out infinite}
+@keyframes aaAntenna{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-14deg)}55%{transform:rotate(10deg)}80%{transform:rotate(-5deg)}}
+.aa-blink{animation:aaBlink 2.6s ease-in-out infinite}
+@keyframes aaBlink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.15)}}
+/* coffee: two steam wisps curl and rise, fading out, offset phase */
+.av svg .aa-steamA{transform-box:view-box;transform-origin:18px 20px;animation:aaSteam 2.4s ease-in-out infinite}
+.av svg .aa-steamB{transform-box:view-box;transform-origin:28px 20px;animation:aaSteam 2.4s ease-in-out infinite;animation-delay:-1.2s}
+@keyframes aaSteam{0%{transform:translateY(3px) scaleY(.7);opacity:0}30%{opacity:.85}70%{transform:translateY(-6px) scaleY(1.15);opacity:.5}100%{transform:translateY(-10px) scaleY(1.3);opacity:0}}
+/* controller: one action button pulses to suggest a button press */
+.aa-ctrlBtn{animation:aaCtrlPulse 1.3s ease-in-out infinite}
+@keyframes aaCtrlPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}
+/* headphones: three EQ bars bounce at different rates, unsynced like a real meter */
+.av svg .aa-eqA{transform-box:view-box;transform-origin:20px 34px;animation:aaEq .7s ease-in-out infinite}
+.av svg .aa-eqB{transform-box:view-box;transform-origin:24px 36px;animation:aaEq .55s ease-in-out infinite;animation-delay:-.2s}
+.av svg .aa-eqC{transform-box:view-box;transform-origin:28px 34px;animation:aaEq .85s ease-in-out infinite;animation-delay:-.4s}
+@keyframes aaEq{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.3)}}
 .av-emoji{font-size:inherit}
 .avatars .av{color:var(--ink)}
-.avatars button.sel .av{color:#FFFCF5}
+.avatars button.sel .av{color:var(--on-accent)}
 .color-dots{display:flex;gap:10px;margin-top:12px}
 .color-dots button{width:34px;height:34px;border-radius:50%;border:2px solid transparent;cursor:pointer;
   box-shadow:0 0 0 1px var(--hair);transition:transform .15s var(--ease-out)}
-.color-dots button.sel{border-color:#FFFCF5;box-shadow:0 0 0 2.5px var(--ink);transform:scale(1.12)}
+.color-dots button.sel{border-color:var(--on-accent);box-shadow:0 0 0 2.5px var(--ink);transform:scale(1.12)}
 
 /* onboarding entrance choreography (animation only) */
 #onboarding .ob-inner>*{animation:fadeUp .55s var(--ease-out) backwards}
@@ -424,6 +712,10 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 #onboarding .ob-inner>*:nth-child(4){animation-delay:.38s}
 #onboarding .ob-inner>*:nth-child(5){animation-delay:.49s}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* step-to-step transition (crew-code -> profile), separate from the initial
+   ob-inner fadeUp stagger above */
+@keyframes obStepIn{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:translateX(0)}}
+.ob-step-in{animation:obStepIn .4s var(--ease-out)}
 .ob-existing button,.avatars button{animation:fadeUp .45s var(--ease-out) backwards}
 .avatars button:nth-child(1){animation-delay:.05s}.avatars button:nth-child(2){animation-delay:.1s}
 .avatars button:nth-child(3){animation-delay:.15s}.avatars button:nth-child(4){animation-delay:.2s}
@@ -433,14 +725,108 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 /* overlays / onboarding / modal */
 .overlay{position:fixed;inset:0;background:var(--paper);z-index:50;display:flex;align-items:center;justify-content:center;padding:24px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E")}
-#excuse-modal{background:rgba(31,27,22,.45)}
+#excuse-modal{background:rgba(var(--shadow-rgb),.45)}
+#confirm-modal{background:rgba(var(--shadow-rgb),.45)}
 .ob-inner{width:100%;max-width:340px}
+/* Lift the launch composition off dead-centre — owner: "much empty space at the
+   top of the screen... keep the elements where they are as a group but move them
+   up". Padding on the CODE step (not margin on .ob-inner) so the lift is scoped
+   automatically: the step is display:none on the profile step, so its taller
+   content keeps the original centring. Applying it to .ob-inner instead pushed the
+   profile step's content past the overlay's top padding (measured innerTop 12 vs
+   24px padding). Padding, not margin, so it can't margin-collapse out. */
+#ob-step-code{padding-bottom:15vh}
 .ob-tag{font-size:15px;color:var(--muted);margin:10px 0 26px;line-height:1.45}
-.ob-inner input[type=text]{width:100%;padding:14px;border:1px solid var(--hair);background:var(--card);font-family:Archivo,sans-serif;font-weight:700;font-size:18px;letter-spacing:.06em;color:var(--ink)}
+/* long-form description, demoted from the top of .ob-inner (owner: keep the
+   short .ob-tag up near the wordmark, make the longer copy "a little floating
+   tab under all that") to a frosted "tab" card at the end of the column.
+   IN-FLOW (not position:absolute) — an earlier absolute/bottom-pinned version
+   overlapped the Tie-in button's caption on the profile step (lead-verified:
+   caption bottom=718px vs tab top=689px), because that step's content (name
+   input + 20 avatars + 6 colours + start button) is tall enough to reach the
+   pin point. As the last child of .ob-inner it flows below whichever step is
+   active, so it can never overlap the start button or the crew-code input.
+   Keeps the same frosted-glass recipe as .ob-notfound / the crew-code input
+   (rgba card tint + blur(10px)) plus --shadow-card so it still reads as a
+   distinct floating card, not a bare paragraph, even though it's in-flow. */
+.ob-fine-tab{margin:22px auto 8px;max-width:100%;
+  background:rgba(var(--card-rgb),.42);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-radius:var(--r-md);padding:14px;box-shadow:var(--shadow-card);
+  font-size:12.5px;color:var(--muted);line-height:1.5;text-align:center}
+/* crew-code "not found" — a distinct panel, never a relabeled Enter button
+   (council fix: a typo must never be one absent-minded tap from forking a
+   new crew). Dashed hairline like the crew-invite card; ink-stamp corner
+   marks it as a decision point, not an error toast. Frosted background
+   matches .ob-inner input[type=text] (owner: "share the frosted ... input
+   parameters" too) — same rgba(var(--card-rgb),.28) + blur(10px), so every
+   surface floating over the onboarding watermark reads as one material
+   instead of some panels being glass and others solid. */
+.ob-notfound{margin-top:14px;padding:16px;border:1.5px dashed var(--hair);
+  background:rgba(var(--card-rgb),.28);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-radius:var(--r-md);animation:fadeUp .3s var(--ease-out)}
+.ob-notfound-msg{font-weight:700;font-size:14.5px;color:var(--ink)}
+.ob-notfound-msg b{font-family:Archivo,sans-serif;letter-spacing:.03em}
+.ob-notfound-sub{font-size:13px;color:var(--muted);margin-top:4px}
+/* both notfound actions converted to captioned icon discs (owner: "these two
+   buttons should also be round to match the others ... more uniform" with
+   the crew-code enter disc) — a horizontal row of two, matching .btn-disc's
+   existing fill/halo recipe instead of a bespoke pill/outline treatment. */
+.ob-notfound-btns{display:flex;flex-direction:row;gap:24px;margin-top:14px;justify-content:center}
+.ob-nf-opt{display:flex;flex-direction:column;align-items:center;gap:7px}
+.ob-nf-cap{font-family:"Instrument Sans",sans-serif;font-weight:600;font-size:12.5px;color:var(--ink);text-align:center}
+/* translucent + blurred (not solid var(--card)) so the full-screen watermark
+   behind #onboarding tints through instead of the input just sitting flatly
+   on top of it (owner feedback 2026-07-24) — backdrop-filter keeps the
+   blurred watermark from reading as visual noise under the typed text.
+   Opacity round-tripped .55->.82->.42->.28 (owner: more opaque, then "more
+   transparent not opaque my bad", then more transparent again) — .28 leans
+   further toward see-through while backdrop-filter still keeps typed text
+   legible. Shared literal values intentionally duplicated on .ob-notfound
+   above so both onboarding surfaces read as one consistent material. */
+.ob-inner input[type=text]{width:100%;padding:14px;border:1px solid var(--hair);
+  background:rgba(var(--card-rgb),.28);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  font-family:Archivo,sans-serif;font-weight:700;font-size:18px;letter-spacing:.06em;color:var(--ink)}
 .ob-inner .btn{width:100%;margin-top:12px}
+/* Tie-in button reverted to a circular start-button disc (owner: "original
+   start button idea"), no caption span. .btn-disc's outer display is flex
+   (block-level outside), so margin:auto centres it in .ob-new same as a
+   block element would. */
+#ob-create-btn{margin:20px auto 0}
+/* crew-code row: input shrunk to a sane width for the actual code length
+   (6-char minimum, no maximum — see app.js's obEnterCode validator; the
+   placeholder example "SWEAT2026" is 9 chars, so this isn't hard-capped via
+   maxlength, just visually sized for a typical code with room to scroll a
+   longer one) with a circular icon button beside it instead of a full-width
+   "Enter" bar underneath (owner: buttons should "mimic the shape of the
+   dock" — .btn-disc reuses the exact fill/halo recipe from .tab.on in the
+   bottom nav for visual consistency between the two "circular icon control"
+   moments in the app). Scoped selector deliberately placed after the base
+   .ob-inner input[type=text] rule above so it wins the width override at
+   equal specificity via cascade order, not a specificity hack. */
+.ob-code-row{display:flex;gap:10px;align-items:center}
+.ob-code-row input[type=text]{width:auto;flex:1;max-width:210px}
+.btn-disc{flex:none;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:var(--grad);color:var(--on-accent);border:none;cursor:pointer;padding:0;
+  box-shadow:0 6px 16px rgba(15,122,109,.32),0 0 0 2px #1BC79E,0 0 7px 1px rgba(27,199,158,.75);
+  transition:transform .15s}
+.btn-disc svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+.btn-disc:active{transform:scale(.92)}
+/* size modifier for the app's single most important action (Bank) — same
+   fill/halo recipe as the base disc, just bigger so it reads as the primary
+   tap target on the Today screen */
+.btn-disc.lg{width:68px;height:68px}
+.btn-disc.lg svg{width:28px;height:28px}
+/* Bank disc "remove" state (negative compose = reverse-crank): flips the
+   deposit-arrow icon 180deg so it reads as pulling back out instead of
+   banking in, without needing a second icon asset */
+.btn-disc.reverse svg{transform:rotate(180deg)}
+/* disabled: same muted look .btn-primary:disabled uses, so a dead disc is
+   just as obviously inert as the old disabled text button was */
+.btn-disc:disabled{background:var(--pending);color:var(--muted);cursor:default;
+  box-shadow:none}
 .ob-existing{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
 .ob-existing button{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--hair);background:var(--card);font-family:"Instrument Sans",sans-serif;font-weight:700;font-size:16px;cursor:pointer;color:var(--ink)}
-.ob-existing .avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);color:#FFFCF5;display:flex;align-items:center;justify-content:center;font-size:16px}
+.ob-existing .avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font-size:16px}
 .avatars{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .avatars button{width:44px;height:44px;border-radius:50%;border:1px solid var(--hair);background:var(--card);font-size:20px;cursor:pointer}
 .avatars button.sel{background:var(--accent);border-color:var(--accent)}
@@ -448,11 +834,49 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
   border-radius:var(--r-lg);box-shadow:var(--shadow-pop);animation:popIn .3s var(--ease-out)}
 @keyframes popIn{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:none}}
 .postit-modal{background:var(--postit);border:none}
-.postit-modal .l-title{color:#8A6D1E}
+.postit-modal .l-title{color:var(--postit-ink-soft)}
 .excuse-input{width:100%;border:none;background:transparent;font-family:Caveat,cursive;font-weight:600;font-size:24px;line-height:1.25;color:var(--postit-ink);resize:none;outline:none}
-.excuse-input::placeholder{color:#B99B4E}
+.excuse-input::placeholder{color:var(--postit-muted)}
 .modal-btns{display:flex;gap:10px;margin-top:14px}
 .modal-btns .btn{flex:1;padding:12px}
+
+/* branded confirm sheet: replaces window.confirm — same card/paper system as
+   the admin modal, cancel stays a quiet ghost button, confirm is always the
+   visually louder one (teal by default, missed/danger red when it's a
+   one-way door like the data wipe) */
+.confirm-modal{padding-top:22px}
+.confirm-msg{font-size:15.5px;font-weight:600;line-height:1.5;color:var(--ink)}
+.btn-danger{background:var(--missed);color:var(--on-accent);box-shadow:0 6px 18px rgba(178,58,46,.28)}
+
+/* celebration overlay (Wave 3): the header wordmark's engineered lantern-glow
+   finally gets a real stage — full-screen, one-shot, over a dimmed backdrop.
+   Reuses <symbol id="rr-wordmark"> at onboarding scale (300px) via <use>;
+   the lantern-glow keyframes (rr-lantern-a/b in the wordmark styles above)
+   apply unchanged since it's the same symbol instance, just bigger. Sits
+   above every other overlay/modal (z-index 95 vs 50/70) so it can never be
+   trapped behind the confirm sheet or the dial hint; tap-anywhere or the
+   auto-dismiss timer always closes it, so it can never trap the user. */
+#celebrate-overlay{z-index:95;background-color:rgba(8,16,13,.94);flex-direction:column;gap:20px;cursor:pointer;
+  /* the wordmark <use> inherits these: on the dark scrim the letters must be
+     paper-light and the separating halo scrim-dark, in BOTH themes — without
+     this the ink-filled type is invisible and only the glow shows (owner-
+     reported bug, 2026-07-24) */
+  --ink:#FAF3E8;--paper:#12211D}
+.celebrate-inner{position:relative;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;animation:celebrateIn .6s var(--ease-out)}
+@keyframes celebrateIn{0%{opacity:0;transform:scale(.72) translateY(14px)}60%{opacity:1;transform:scale(1.06) translateY(-2px)}100%{opacity:1;transform:none}}
+.cfetti{position:absolute;top:50%;left:50%;width:9px;height:15px;border-radius:1.5px;background:var(--c,#C7F464);pointer-events:none;z-index:2;
+  animation:cfettiBurst 1.5s cubic-bezier(.2,.7,.3,1) var(--d,0s) forwards;opacity:0}
+@keyframes cfettiBurst{
+  0%{opacity:1;transform:translate(0,0) rotate(0) scale(.6)}
+  25%{opacity:1;transform:translate(calc(var(--tx) * .55),var(--peak)) rotate(calc(var(--rot) * .4)) scale(1)}
+  100%{opacity:0;transform:translate(var(--tx),var(--ty)) rotate(var(--rot)) scale(.9)}}
+.celebrate-flash{position:absolute;top:50%;left:50%;width:340px;height:340px;margin:-170px 0 0 -170px;border-radius:50%;opacity:0;animation-fill-mode:forwards;
+  background:radial-gradient(closest-side,rgba(199,244,100,.5),transparent 70%);pointer-events:none;
+  animation:celebrateFlash 1.1s var(--ease-out)}
+@keyframes celebrateFlash{0%{opacity:0;transform:scale(.6)}30%{opacity:1}100%{opacity:.55;transform:scale(1)}}
+.celebrate-wordmark{width:min(300px,74vw);height:auto;position:relative;filter:drop-shadow(0 0 26px rgba(199,244,100,.35))}
+.celebrate-line{font-family:Archivo,sans-serif;font-weight:800;font-size:20px;line-height:1.3;letter-spacing:-.01em;color:#FAF3E8;position:relative;max-width:300px}
+.celebrate-line::after{content:"";display:block;width:46px;height:3px;background:var(--volt);margin:12px auto 0;border-radius:2px}
 
 /* council polish round (Expansionist QoL, 2026-07-20) */
 /* dial: volt discharge each full revolution */
@@ -461,19 +885,43 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 .knot.fray.slack{border-style:solid;border-color:var(--accent);opacity:.55;
   animation:slackSway 3.2s ease-in-out infinite;transform-origin:top center}
 @keyframes slackSway{50%{transform:translateY(1.5px) rotate(6deg)}}
-/* ledger: every 10th strike lands heavier */
-.stamp.five.ten{height:3.5px;opacity:1;box-shadow:0 0 1px rgba(31,27,22,.8)}
+/* ledger: every 10th strike lands heavier — legible at the rebuilt full-size
+   stamp scale (Wave 4), not just a 1px nudge on a 3px sliver */
+.stamp.five.ten{height:5px;opacity:1;box-shadow:0 0 1.5px rgba(var(--shadow-rgb),.8)}
 /* history: perfect month joins the dots into a thin ink line */
 .hist-cell{position:relative}
 .hist-grid.perfect .hist-cell.ink::before{content:"";position:absolute;left:50%;top:calc(50% + 7px);
   width:calc(100% + 6px);height:2px;border-radius:1px;background:var(--accent);opacity:.45}
-/* post-it: corner curls a little more each day it hangs unread */
+/* history swap-in: tiles fall into place like they're dropping off a wall.
+   Only active while `.hist-anim` sits on #hist-calendar-view (app.js gates it
+   to an actual calendar<->ladder view change, not every re-render). Staggered
+   via the inline --i index set per-cell in renderHistory(); kept short (12ms
+   /cell) so a full 35-cell month still resolves in well under a second. */
+@keyframes histTileFall{from{opacity:0;transform:translateY(-14px) rotate(-3deg)}to{opacity:1;transform:none}}
+.hist-anim .hist-cell{animation:histTileFall .38s var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 12ms)}
+/* post-it aging (Wave 4 — council reversal): the accountability artifact
+   gets LOUDER with age, not quieter. An unaddressed excuse escalates its
+   rotation, scale, and shadow the longer it sits, and picks up a second pin
+   once it's genuinely overdue — replaces the old curl-1/2/3 decay mechanic
+   (a curling, wilting corner read as the opposite of accountability).
+   postitAgeClass() in app.js still buckets by day-age 0-3; only the visual
+   language changed. The overrides below beat the site-specific rotate()
+   rules on Today's mate zone and Crew cards via matching specificity, so
+   aging always wins over the resting tilt once an excuse is old enough.
+   Applied wherever excuses render: Home, Today, Crew. */
 .postit{position:relative}
-.postit[class*=curl-]::after{content:"";position:absolute;right:0;bottom:0;width:0;height:0;
-  border-top-style:solid;border-top-color:#D8B759;border-right-style:solid;border-right-color:var(--paper)}
-.postit.curl-1::after{border-top-width:7px;border-right-width:7px}
-.postit.curl-2::after{border-top-width:12px;border-right-width:12px}
-.postit.curl-3::after{border-top-width:17px;border-right-width:17px}
+.postit::before{content:"";position:absolute;top:-6px;left:50%;width:11px;height:11px;margin-left:-5.5px;
+  border-radius:50%;background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.9),var(--ink) 65%);
+  box-shadow:0 2px 3px rgba(var(--shadow-rgb),.45);z-index:2}
+.postit.aged-1,#mate-postit-zone .postit.aged-1,.crew-card .postit.aged-1{
+  transform:rotate(-7deg) scale(1.04);box-shadow:0 10px 24px rgba(var(--shadow-rgb),.2)}
+.postit.aged-2,#mate-postit-zone .postit.aged-2,.crew-card .postit.aged-2{
+  transform:rotate(9deg) scale(1.09);box-shadow:0 13px 30px rgba(var(--shadow-rgb),.28)}
+.postit.aged-3,#mate-postit-zone .postit.aged-3,.crew-card .postit.aged-3{
+  transform:rotate(-12deg) scale(1.15);box-shadow:0 16px 36px rgba(var(--shadow-rgb),.36)}
+.postit.aged-2::after,.postit.aged-3::after{content:"";position:absolute;top:-4px;right:22%;width:9px;height:9px;
+  border-radius:50%;background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.9),var(--ink) 65%);
+  box-shadow:0 2px 3px rgba(var(--shadow-rgb),.4);transform:rotate(14deg);z-index:2}
 /* personal best chip beside the all-time total */
 .pb-badge{display:inline-block;background:var(--volt);color:var(--pine);font-family:"Instrument Sans",sans-serif;
   font-weight:800;font-size:10px;letter-spacing:.04em;padding:1px 7px;border-radius:9px;vertical-align:1px}
@@ -482,3 +930,71 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
     transition-duration:.01ms !important;scroll-behavior:auto !important}
 }
+
+/* ---------- Wave 5: ladder view ---------- ------------------------------
+   "Rung" made literal: the escalating weekly targets as a climbable ladder,
+   toggled alongside the existing calendar (History screen). Reuses the
+   day-state colour vocabulary (bg-met/bg-rest/bg-excused/bg-missed/
+   bg-pending + the shape rules above) so it never invents a second palette.
+   Design choice: the two rails are fixed verticals (structural — that's what
+   reads as "a ladder" rather than a bar chart), so a week's target escalates
+   the RUNG'S THICKNESS + its number's type-size (a heavier week looks and
+   sits heavier), not the rails' spacing. */
+.hv-toggle{position:relative;display:flex;gap:3px;margin:10px auto 4px;width:max-content;padding:3px;background:var(--card);
+  border:1px solid var(--hair);border-radius:999px;box-shadow:var(--shadow-card)}
+.hv-thumb{position:absolute;top:3px;bottom:3px;left:3px;width:56px;border-radius:999px;
+  background:var(--grad);box-shadow:0 2px 8px rgba(15,122,109,.3);transition:transform .32s var(--ease-out);z-index:0}
+.hv-toggle.v-ladder .hv-thumb{transform:translateX(59px)}
+.hv-btn{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;
+  width:56px;border:none;background:none;padding:7px 0;
+  color:var(--muted);border-radius:999px;cursor:pointer;
+  transition:color .2s}
+.hv-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.hv-btn:active{transform:scale(.97)}
+.hv-btn.on{color:var(--on-accent)}
+
+.ladder-wrap{margin:8px 22px 0;padding:16px 8px 12px;background:var(--card);border:1px solid var(--hair);
+  border-radius:var(--r-lg);box-shadow:var(--shadow-card)}
+/* scrolls WITHIN the card (never the page) so a 30+ week challenge stays legible */
+.ladder-scroll{position:relative;max-height:min(58vh,480px);overflow-y:auto;overflow-x:hidden;
+  padding:6px 4px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.ladder-rail{position:absolute;top:6px;bottom:6px;width:3px;border-radius:2px;opacity:.55;pointer-events:none;
+  /* same fibrous-rope texture trick as .strand, so the rails read as the same
+     material as the rest of the brand's rope language, not a plain CSS line */
+  background:repeating-linear-gradient(180deg,rgba(var(--texture-rgb),.5) 0 3px,rgba(var(--texture-rgb),.12) 3px 7px)}
+.ladder-rail.l{left:38px}
+.ladder-rail.r{right:36px}
+.ladder-rungs{position:relative;display:flex;flex-direction:column}
+.rung-row{position:relative;display:flex;align-items:center;gap:8px;min-height:44px;z-index:1}
+.rung-wk{flex:0 0 30px;font-size:10px;font-weight:700;color:var(--muted);text-align:right;
+  font-variant-numeric:tabular-nums}
+.rung-zone{flex:1;position:relative;display:flex;flex-direction:column;align-items:stretch;
+  justify-content:center;gap:4px;padding:0 4px;min-width:0}
+.rung-ticks{display:flex;justify-content:space-between;gap:2px;padding:0 2px}
+.rt{width:6px;height:6px;flex:none}
+/* the rung itself: ink = climbed, volt = the current week (exactly volt's
+   job per the brand), dashed pending-grey = future. Thickness (set inline
+   per-row from targetFor) is the "heavier target, heavier rung" read; a tiny
+   deterministic rotation jitter (also inline) keeps it hand-made, not a ruler
+   line — same irregularity language as the ledger's tilted stamp rows. */
+.rung-bar{width:100%;border-radius:3px;background:var(--ink);transform-origin:center;transition:opacity .2s}
+.rung-row.past .rung-bar{opacity:.88}
+.rung-row.current .rung-bar{background:var(--volt);
+  box-shadow:0 0 0 3px rgba(199,244,100,.4),0 0 14px rgba(199,244,100,.35)}
+.rung-row.future .rung-bar{background:transparent;border:1.5px dashed var(--pending);min-height:3px}
+/* subtle cap treatment: the week the climb first plateaus gets a small
+   ceiling tag instead of an ever-thicker rung from then on */
+.rung-cap-tag{align-self:center;font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);border-top:1.5px dashed var(--hair);padding-top:3px;margin-top:1px}
+.rung-target{flex:0 0 30px;font-family:Archivo,sans-serif;font-weight:800;color:var(--ink);
+  font-variant-numeric:tabular-nums;text-align:left;letter-spacing:-.02em}
+.rung-row.current .rung-target{color:var(--pine)}
+.rung-row.future .rung-target{color:var(--muted);font-weight:700}
+/* ladder swap-in: rungs build bottom-up, like being laid down as you climb.
+   Only active while `.hist-anim` sits on #hist-ladder-view (app.js gates it
+   to an actual calendar<->ladder view change). renderLadder() emits highest
+   week first (top) / week 1 last (bottom), so the stagger index is reversed
+   in app.js (--i = totalWeeks-1-idx) to make the bottom rung go first. */
+@keyframes ladderRungBuild{from{opacity:0;transform:translateY(10px) scaleX(.86)}to{opacity:1;transform:none}}
+.hist-anim .rung-row{animation:ladderRungBuild .42s var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 55ms)}
+.ladder-legend{margin-top:8px;padding:8px 4px 0}

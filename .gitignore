@@ -11,3 +11,5 @@ CLAUDE.md
 .DS_Store
 .gstack/
 HANDOVER.md
+serve-dev.py
+.foreman/

@@ -1,7 +1,7 @@
 // Rope & Rung — app shell. Pure rules live in logic.js; storage in data.js.
 
 import {
-  toDayStr, addDays, parseDay, targetFor, dayTally, allTimeTotal, isLate,
+  toDayStr, addDays, parseDay, daysBetween, targetFor, dayTally, allTimeTotal, isLate,
   canDeclareRest, restsUsedInWeek, dayState, streak, DEFAULT_SETTINGS,
 } from "./logic.js";
 import { makeAdapter } from "./data.js";
@@ -21,12 +21,24 @@ const state = {
 };
 const SCREEN_ORDER = ["home", "today", "crew", "history", "settings"];
 
-const today = () => toDayStr(new Date());
+const today = () => {
+  const override = localStorage.getItem("pushpact-date-override");
+  return override ? override : toDayStr(new Date());
+};
 const session = {
   load: () => JSON.parse(localStorage.getItem("pushpact-session") || "null"),
   save: (s) => localStorage.setItem("pushpact-session", JSON.stringify(s)),
   clear: () => localStorage.removeItem("pushpact-session"),
 };
+
+// keeps the header date + the "simulated date" tag in sync with today();
+// called on boot and on every render so the override is never stale.
+function updateHeadDate() {
+  $("head-date").textContent = parseDay(today()).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+  const override = localStorage.getItem("pushpact-date-override");
+  $("date-override-tag").classList.toggle("hidden", !override);
+  if (override) $("date-override-tag").textContent = `Simulated: ${override}`;
+}
 
 // ---------- boot ----------
 
@@ -37,7 +49,7 @@ async function boot() {
     $("local-banner").classList.add("hidden");
     localStorage.setItem("pushpact-solo-dismissed", "1");
   });
-  $("head-date").textContent = parseDay(today()).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+  updateHeadDate();
 
   // invite deep-link: ?code=XYZ prefills the crew code for the invited mate
   const inviteCode = new URLSearchParams(location.search).get("code");
@@ -73,6 +85,10 @@ async function refetch() {
   state.crew = all.crew; state.profiles = all.profiles;
   state.sets = all.sets; state.statuses = all.statuses;
   state.settings = { ...DEFAULT_SETTINGS, ...(all.crew.settings || {}) };
+  // re-point state.me at the fresh copy (not just the stale reference from
+  // loadCrew) so a profile edit — or any other change to your own row —
+  // shows up immediately instead of only after a full reload.
+  state.me = state.profiles.find((p) => p.id === state.me.id) ?? state.me;
   renderAll();
 }
 
@@ -85,23 +101,41 @@ function showApp() {
 // ---------- avatars: animated line-art profile marks (emoji kept as legacy fallback) ----------
 
 const AVATAR_ART = {
-  pumper: '<svg viewBox="0 0 48 48"><path d="M8 37 H40" opacity=".5"/><g class="aa-pump"><path d="M9 33 L26 27 L33 24.5"/><circle cx="37.5" cy="21.5" r="3.8" fill="currentColor" stroke="none"/><path d="M32 25 L31 33.5"/></g><path d="M9 33 L8 37"/></svg>',
+  pumper: '<svg viewBox="0 0 48 48"><path d="M8 37 H40" opacity=".5"/><g class="aa-pump"><path d="M9 33 L26 27 L33 24.5"/><circle cx="37.5" cy="21.5" r="3.8" fill="currentColor" stroke="none"/><path d="M32 25 L30.5 29"/></g><path d="M30.5 29 L30 33"/><path d="M9 33 L8 37"/></svg>',
   flex: '<svg viewBox="0 0 48 48"><circle cx="14" cy="9" r="4.5"/><path d="M14 15 V33"/><path d="M14 33 L9 43 M14 33 L20 43"/><path d="M14 20 L26 24"/><g class="aa-flex"><path d="M26 24 L36 16"/><circle cx="38" cy="14" r="4.5"/></g></svg>',
-  grit: '<svg viewBox="0 0 48 48"><circle cx="24" cy="25" r="15"/><g class="aa-brow"><path d="M16 20 L22 22 M32 20 L26 22"/></g><circle cx="20" cy="27" r="1.7" fill="currentColor" stroke="none"/><circle cx="28" cy="27" r="1.7" fill="currentColor" stroke="none"/><path d="M19 34 H29"/><circle class="aa-sweat" cx="41" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg>',
-  beast: '<svg viewBox="0 0 48 48"><circle cx="24" cy="27" r="13"/><path class="aa-brow" d="M15 21 H33"/><circle cx="19.5" cy="26" r="1.7" fill="currentColor" stroke="none"/><circle cx="28.5" cy="26" r="1.7" fill="currentColor" stroke="none"/><path d="M20 34 Q24 31 28 34"/><path d="M11 16 L17 11 M37 16 L31 11"/></svg>',
+  grit: '<svg viewBox="0 0 48 48"><g class="aa-gritShake"><circle cx="24" cy="25" r="15"/><g class="aa-brow"><path d="M16 19 L22 22 M32 19 L26 22"/></g><circle cx="20" cy="27" r="1.7" fill="currentColor" stroke="none"/><circle cx="28" cy="27" r="1.7" fill="currentColor" stroke="none"/><path d="M18 34 H30 M20.5 34 V37 M24 34 V37.5 M27.5 34 V37"/></g><circle class="aa-sweat" cx="41" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg>',
+  beast: '<svg viewBox="0 0 48 48"><g class="aa-beastShake"><circle cx="24" cy="27" r="13"/><path class="aa-brow" d="M15 21 H33"/><circle cx="19.5" cy="26" r="1.7" fill="currentColor" stroke="none"/><circle cx="28.5" cy="26" r="1.7" fill="currentColor" stroke="none"/><path class="aa-roar" d="M20 34 Q24 31 28 34"/></g><path class="aa-hornL" d="M11 16 L17 11"/><path class="aa-hornR" d="M37 16 L31 11"/></svg>',
   bolt: '<svg viewBox="0 0 48 48"><path class="aa-bolt" d="M27 5 L13 27 H22 L19 43 L35 20 H25 Z"/></svg>',
   spring: '<svg viewBox="0 0 48 48"><g class="aa-sprBody"><circle cx="24" cy="9" r="4.5"/><path d="M24 14 V27"/><path class="aa-sprArmL" d="M24 18 L13 9"/><path class="aa-sprArmR" d="M24 18 L35 9"/><path class="aa-sprLegL" d="M24 27 L14 40"/><path class="aa-sprLegR" d="M24 27 L34 40"/></g></svg>',
-  zen: '<svg viewBox="0 0 48 48"><g class="aa-zenTorso"><circle cx="24" cy="10" r="4.5"/><path d="M24 15 V26"/><path d="M24 18 Q13 21 11 30 M24 18 Q35 21 37 30"/></g><path d="M10 33 Q24 25 38 33"/><path d="M14 37 H34" opacity=".5"/></svg>',
-  bell: '<svg viewBox="0 0 48 48"><g class="aa-rock"><path d="M15 24 H33"/><rect x="8" y="15" width="6.5" height="18" rx="2.5"/><rect x="33.5" y="15" width="6.5" height="18" rx="2.5"/></g></svg>',
-  flame: '<svg viewBox="0 0 48 48"><path class="aa-flick" d="M24 6 C28 14 34 17 34 27 A10 10 0 0 1 14 27 C14 20 20 16 24 6 Z"/><path d="M24 24 C26 28 28 29 28 32 A4 4 0 0 1 20 32 C20 29 22 27 24 24 Z" fill="currentColor" stroke="none" opacity=".8"/></svg>',
-  star: '<svg viewBox="0 0 48 48"><path class="aa-twinkle" d="M24 6 L28.5 18 L41 19 L31 27 L34.5 40 L24 32.5 L13.5 40 L17 27 L7 19 L19.5 18 Z"/></svg>',
-  peak: '<svg viewBox="0 0 48 48"><path d="M6 38 L20 14 L27 26 L33 18 L42 38 Z"/><path class="aa-flag" d="M20 14 V6 L27 9 L20 12"/></svg>',
+  zen: '<svg viewBox="0 0 48 48"><ellipse class="aa-zenShadow" cx="24" cy="38" rx="13" ry="2.6" fill="currentColor" stroke="none" opacity=".35"/><g class="aa-zenBody"><path d="M10 33 Q24 26 38 33"/><circle cx="24" cy="9.5" r="4.6"/><path d="M24 14.5 V25"/><path d="M24 17.5 Q13 20.5 10.5 29 M24 17.5 Q35 20.5 37.5 29"/></g></svg>',
+  bell: '<svg viewBox="0 0 48 48"><path class="aa-ringL" d="M10 9 L5 4 M6 14 L1 12"/><path class="aa-ringR" d="M38 9 L43 4 M42 14 L47 12"/><g class="aa-rock"><rect x="8" y="15" width="6.5" height="18" rx="2.5"/><rect x="33.5" y="15" width="6.5" height="18" rx="2.5"/><path d="M15 24 H33"/><circle class="aa-clapper" cx="24" cy="25" r="2.3" fill="currentColor" stroke="none"/></g></svg>',
+  flame: '<svg viewBox="0 0 48 48"><path class="aa-tongueL" d="M16 29 C14 26 15 22 18 18 C17 22 18 25 20 27 Z"/><path class="aa-tongueR" d="M32 29 C34 26 33 22 30 18 C31 22 30 25 28 27 Z"/><path class="aa-flick" d="M24 6 C28 14 34 17 34 27 A10 10 0 0 1 14 27 C14 20 20 16 24 6 Z"/><path class="aa-core" d="M24 17 C26.5 21 29 24.5 29 29 A5 5 0 0 1 19 29 C19 24.5 21.5 21 24 17 Z" fill="currentColor" stroke="none"/></svg>',
+  star: '<svg viewBox="0 0 48 48"><path class="aa-glintA" d="M8 10 L8 4 M5 7 L11 7"/><path class="aa-glintB" d="M42 34 L42 40 M39 37 L45 37"/><path class="aa-twinkle" d="M24 6 L28.5 18 L41 19 L31 27 L34.5 40 L24 32.5 L13.5 40 L17 27 L7 19 L19.5 18 Z"/></svg>',
+  peak: '<svg viewBox="0 0 48 48"><path d="M6 38 L20 14 L27 26 L33 18 L42 38 Z" fill="currentColor" stroke="none"/><g class="aa-pole"><path d="M20 14 V6"/><path class="aa-flagA" d="M20 6 L29 9 L20 12 Z" fill="currentColor" stroke="none"/><path class="aa-flagB" d="M20 6.5 L27 8.7 L20 11.5 Z" fill="currentColor" stroke="none" opacity=".55"/></g></svg>',
   runner: '<svg viewBox="0 0 48 48"><circle cx="30" cy="10" r="4.5"/><path d="M28 15 L22 26"/><path d="M22 26 L14 30 M26 20 L36 24"/><path class="aa-runLegF" d="M22 26 L28 34 L24 42"/><path class="aa-runLegB" d="M22 26 L12 40"/></svg>',
   crown: '<svg viewBox="0 0 48 48"><path class="aa-seesaw" d="M10 34 L8 15 L18 24 L24 10 L30 24 L40 15 L38 34 Z"/><path d="M10 38 H38"/></svg>',
   wave: '<svg viewBox="0 0 48 48"><path class="aa-slide" d="M-8 30 Q-1 22 6 30 T20 30 T34 30 T48 30 T62 30" fill="none"/><path class="aa-slide2" d="M-12 38 Q-5 31 2 38 T16 38 T30 38 T44 38 T58 38 T72 38" fill="none" opacity=".5"/></svg>',
+  // ---- Wave 7: 6 new non-fitness avatars (additive; existing 14 ids/order untouched) ----
+  rocket: '<svg viewBox="0 0 48 48"><g class="aa-rocketBody"><path d="M24 4 C30 10 32 20 32 29 L16 29 C16 20 18 10 24 4 Z"/><circle cx="24" cy="17" r="3"/><path d="M16 27 L9 36 L16 32 Z M32 27 L39 36 L32 32 Z"/></g><path class="aa-flameMain" d="M19.5 29 L24 40 L28.5 29 Z"/><circle class="aa-puffL" cx="15" cy="34" r="2.2" fill="currentColor" stroke="none"/><circle class="aa-puffR" cx="33" cy="34" r="2.2" fill="currentColor" stroke="none"/></svg>',
+  paw: '<svg viewBox="0 0 48 48"><g class="aa-pawStamp"><ellipse cx="24" cy="32" rx="9" ry="7" fill="currentColor" stroke="none"/><ellipse cx="12.5" cy="19" rx="4" ry="5" fill="currentColor" stroke="none"/><ellipse cx="21" cy="12.5" rx="4" ry="5.2" fill="currentColor" stroke="none"/><ellipse cx="29" cy="12.5" rx="4" ry="5.2" fill="currentColor" stroke="none"/><ellipse cx="37.5" cy="19" rx="4" ry="5" fill="currentColor" stroke="none"/></g></svg>',
+  robot: '<svg viewBox="0 0 48 48"><g class="aa-antenna"><path d="M24 14 V7"/><circle cx="24" cy="5" r="2.4" fill="currentColor" stroke="none"/></g><rect x="12" y="14" width="24" height="19" rx="4"/><rect x="18" y="33" width="12" height="7" rx="1.5"/><g class="aa-blink"><rect x="16.5" y="21" width="4" height="4" rx="1"/><rect x="27.5" y="21" width="4" height="4" rx="1"/></g><path d="M17 29 H31"/></svg>',
+  coffee: '<svg viewBox="0 0 48 48"><path class="aa-steamA" d="M18 20 Q15 16 18 12 Q21 8 18 4"/><path class="aa-steamB" d="M28 20 Q25 16 28 12 Q31 8 28 4"/><path d="M12 22 H32 L30 38 Q30 41 27 41 H17 Q14 41 14 38 Z"/><path d="M32 25 Q40 25 40 31 Q40 37 32 36"/></svg>',
+  controller: '<svg viewBox="0 0 48 48"><rect x="7" y="15" width="34" height="19" rx="9.5"/><rect x="14.5" y="18.5" width="3" height="9" rx="1"/><rect x="11.5" y="21.5" width="9" height="3" rx="1"/><circle class="aa-ctrlBtn" cx="30" cy="19" r="2" fill="currentColor" stroke="none"/><circle cx="34" cy="23" r="2" fill="currentColor" stroke="none"/><circle cx="30" cy="27" r="2" fill="currentColor" stroke="none"/><circle cx="26" cy="23" r="2" fill="currentColor" stroke="none"/></svg>',
+  headphones: '<svg viewBox="0 0 48 48"><path d="M10 26 A14 14 0 0 1 38 26"/><rect x="6" y="24" width="8" height="14" rx="3"/><rect x="34" y="24" width="8" height="14" rx="3"/><path class="aa-eqA" d="M20 34 V26"/><path class="aa-eqB" d="M24 36 V22"/><path class="aa-eqC" d="M28 34 V28"/></svg>',
 };
-// avatar value format: "art" or "art.colour" (per-person icon colour)
-const AVATAR_COLORS = { teal: "#0F7A6D", pine: "#0B3B34", blue: "#5B7FA6", mustard: "#C98A2B", brick: "#B23A2E", ink: "#1F1B16" };
+// avatar value format: "art" or "art.colour" (per-person icon colour).
+// Keys are stable (stored profiles reference them by name) — only the hex
+// values changed 2026-07-23: blue/mustard/brick used to be byte-identical to
+// the --rest/--excused/--missed day-state colours (people vs. state palette
+// collision, council finding). New hues (slate/violet/rose) match nothing in
+// style.css :root.
+// Owner revision 2026-07-24 (round 2): palette aligned to the original
+// first-iteration feel — green, blue, yellow, reddish — keeping the teal and
+// the deep "background" pine the owner likes, black removed for a
+// complementary violet. All hues deliberately distinct from every day-state
+// colour in BOTH themes (light --missed #B23A2E / dark --missed #E8695C,
+// light --excused #C98A2B / dark #E8AC52, etc.) and from volt. No orange.
+const AVATAR_COLORS = { teal: "#0F7A6D", pine: "#0B3B34", blue: "#2E7CF6", mustard: "#F2C51D", brick: "#D9385E", ink: "#7B5CF0" };
 function avatarParts(a) {
   const [art, col] = String(a || "").split(".");
   return { art, color: AVATAR_COLORS[col] || null };
@@ -112,10 +146,12 @@ function avatarHTML(a) {
     ? `<span class="av">${AVATAR_ART[art]}</span>`
     : `<span class="av av-emoji">${esc(a)}</span>`;
 }
-// full circle chip incl. per-person background colour
-function avatarChip(a) {
+// full circle chip incl. per-person background colour. `extraClass` (optional)
+// lets a call site size/decorate the chip for its own context (e.g. Crew's
+// corkboard-scale avatar + state ring) without a second avatar-rendering path.
+function avatarChip(a, extraClass = "") {
   const { color } = avatarParts(a);
-  return `<span class="avatar"${color ? ` style="background:${color}"` : ""}>${avatarHTML(a)}</span>`;
+  return `<span class="avatar${extraClass ? ` ${extraClass}` : ""}"${color ? ` style="background:${color}"` : ""}>${avatarHTML(a)}</span>`;
 }
 
 // haptics: navigator.vibrate is Android-only; iOS ≥17.4 gets the hidden
@@ -139,54 +175,236 @@ function hapticTick(ms = 10) {
   } catch { /* no haptics available */ }
 }
 
+// ---------- serialized commit queue (Wave 4 fix) ----------
+// homeQuickAdd and the bank-btn handler each snapshot `before = myTallyToday()`
+// then await state.adapter.addSet(...) — a rapid double-tap, or plain
+// Supabase latency, could let two overlapping calls read the same stale
+// `before`, silently skipping a deserved celebration. Funnelling every commit
+// through one promise chain guarantees each call's `before` is only read once
+// the previous commit (and its refetch) has fully landed — no overlap is
+// possible even if several taps queue up back to back.
+let commitChain = Promise.resolve();
+function serializeCommit(fn) {
+  const run = commitChain.then(fn, fn);
+  commitChain = run.catch(() => {});
+  return run;
+}
+
+// ---------- confirm sheet (branded window.confirm replacement) ----------
+// Fridge-ledger styled stand-in for the three destructive-ish window.confirm()
+// prompts (undo a crank, tear a set out of the ledger, rewrite the crew's
+// challenge, wipe all local data). Backdrop tap and Escape both cancel;
+// focus defaults to Cancel so an impatient double-tap never confirms by
+// accident; danger:true swaps the confirm button to the missed/red hue for
+// the one genuinely irreversible action (data wipe).
+function confirmSheet(message, { confirmLabel = "Do it", cancelLabel = "Cancel", danger = false } = {}) {
+  const modal = $("confirm-modal");
+  const okBtn = $("confirm-ok");
+  const cancelBtn = $("confirm-cancel");
+  return new Promise((resolve) => {
+    $("confirm-message").textContent = message;
+    okBtn.textContent = confirmLabel;
+    cancelBtn.textContent = cancelLabel;
+    okBtn.classList.toggle("btn-danger", danger);
+    okBtn.classList.toggle("btn-primary", !danger);
+    modal.classList.remove("hidden");
+
+    function done(result) {
+      modal.classList.add("hidden");
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      modal.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKey);
+      resolve(result);
+    }
+    function onOk() { done(true); }
+    function onCancel() { done(false); }
+    function onBackdrop(e) { if (e.target === modal) done(false); }
+    function onKey(e) { if (e.key === "Escape") done(false); }
+
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    modal.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKey);
+    cancelBtn.focus();
+  });
+}
+
+// ---------- celebration overlay (Wave 3: the lantern-glow wordmark's real stage) ----------
+// One-shot, full-screen moment for the two events worth stopping the user for:
+// the daily target getting smashed, and streak milestones (every 7 days).
+// Reuses the header's own <symbol id="rr-wordmark"> via <use> — same asset,
+// onboarding-scale (300px) — never a redrawn/duplicated SVG. Persisted
+// per-day (target) / per-milestone (streak) in localStorage so re-renders,
+// refocuses, or extra reps after the moment never replay it.
+const TARGET_CELEBRATE_LINE = "Target smashed. That's today, done.";
+const STREAK_CELEBRATE_LINES = {
+  7: "Seven days. Knot tied.",
+  14: "Two weeks straight. The rope holds.",
+  21: "Three weeks. That's a habit now.",
+  28: "Four weeks straight. Cast in stone.",
+};
+function streakCelebrateLine(n) {
+  return STREAK_CELEBRATE_LINES[n] || `${n} days straight. Still climbing.`;
+}
+
+function celebrationSeenKey(kind, id) {
+  return `pushpact-celebrate-${kind}-${state.me.id}-${id}`;
+}
+// queued rather than fired straight in, so the rare case of both a target
+// AND a streak milestone landing on the same tap shows one, then the other —
+// never two overlays stacked.
+const celebrateQueue = [];
+let celebrateShowing = false;
+let celebrateTimer = null;
+
+function queueCelebrationOnce(kind, id, line) {
+  const key = celebrationSeenKey(kind, id);
+  if (localStorage.getItem(key) === "1") return; // already played — one-shot
+  localStorage.setItem(key, "1");
+  celebrateQueue.push(line);
+  if (!celebrateShowing) showNextCelebration();
+}
+
+function showNextCelebration() {
+  const line = celebrateQueue.shift();
+  if (line === undefined) { celebrateShowing = false; return; }
+  celebrateShowing = true;
+  const overlay = $("celebrate-overlay");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $("celebrate-line").textContent = line;
+  overlay.classList.remove("hidden");
+  if (!reduced) spawnCelebrateConfetti();
+  hapticTick(reduced ? 12 : 28);
+  clearTimeout(celebrateTimer);
+  celebrateTimer = setTimeout(dismissCelebration, reduced ? 1600 : 3200);
+  overlay.addEventListener("click", dismissCelebration, { once: true });
+}
+
+// bespoke volt-paper confetti burst — hand-rolled for the brand (this is NOT
+// the retired Aceternity spark port): little cut-paper rectangles thrown up
+// and out from behind the wordmark, in the app's own colours only.
+const CFETTI_COLORS = ["#C7F464", "#C7F464", "#FAF3E8", "#0F7A6D", "#F2C51D"];
+function spawnCelebrateConfetti() {
+  const inner = document.querySelector("#celebrate-overlay .celebrate-inner");
+  if (!inner) return;
+  for (let i = 0; i < 28; i++) {
+    const p = document.createElement("span");
+    p.className = "cfetti";
+    p.style.setProperty("--c", CFETTI_COLORS[i % CFETTI_COLORS.length]);
+    p.style.setProperty("--tx", `${(Math.random() * 2 - 1) * 190}px`);
+    p.style.setProperty("--peak", `${-(60 + Math.random() * 140)}px`);
+    p.style.setProperty("--ty", `${140 + Math.random() * 220}px`);
+    p.style.setProperty("--rot", `${(Math.random() * 2 - 1) * 540}deg`);
+    p.style.setProperty("--d", `${Math.random() * 0.25}s`);
+    inner.appendChild(p);
+    setTimeout(() => p.remove(), 2000);
+  }
+}
+
+function dismissCelebration() {
+  clearTimeout(celebrateTimer);
+  const overlay = $("celebrate-overlay");
+  overlay.classList.add("hidden");
+  // small gap before the next one so back-to-back moments don't feel like a glitch
+  setTimeout(showNextCelebration, 250);
+}
+
+// called with the tally BEFORE the mutation that just landed, so the crossing
+// (not-met -> met) is only ever detected once per commit, and the one-shot
+// key above guards against it firing again later the same day.
+function maybeCelebrateTargetMet(beforeTally, repsAdded) {
+  const target = targetFor(today(), state.settings);
+  if (beforeTally < target && beforeTally + repsAdded >= target) {
+    queueCelebrationOnce("target", today(), TARGET_CELEBRATE_LINE);
+  }
+}
+function maybeCelebrateStreak() {
+  const stk = streak({ sets: state.sets, statuses: state.statuses, profileId: state.me.id, today: today(), settings: state.settings });
+  if (stk > 0 && stk % 7 === 0) {
+    queueCelebrationOnce("streak", String(stk), streakCelebrateLine(stk));
+  }
+}
+
 // ---------- onboarding ----------
 
-let obCrew = null, obAvatar = "pumper", obColor = "teal", obPendingCreate = false;
-const AVATARS = ["pumper", "flex", "grit", "beast", "bolt", "spring", "zen", "bell", "flame", "star", "peak", "runner", "crown", "wave"];
+let obCrew = null, obAvatar = "pumper", obColor = "teal";
+const AVATARS = ["pumper", "flex", "grit", "beast", "bolt", "spring", "zen", "bell", "flame", "star", "peak", "runner", "crown", "wave", "rocket", "paw", "robot", "coffee", "controller", "headphones"];
 
+// crew-code entry: a failed lookup must NEVER be reachable by tapping the same
+// button twice — that's how a typo silently forked someone into an empty crew
+// (council finding, 2026-07-23). A miss shows a distinct "not found" panel with
+// two deliberate, equally-weighted paths: fix the typo (input stays focused/
+// editable) or explicitly start a new crew under that code. Enter never
+// relabels itself into a create action.
 $("ob-code-btn").addEventListener("click", async () => {
   const code = $("crew-code").value.trim().toUpperCase();
-  if (code.length < 6) return obErr("Code needs at least 6 characters — the code is what keeps your crew private, so give it a bit more entropy than a word.");
+  if (code.length !== 6) return obErr("Crew codes are exactly 6 characters — no shortcuts, so nobody wanders into your crew by accident. Give us the rest of it.");
+  hideCodeNotFound();
   try {
-    let crew = await state.adapter.findCrew(code);
-    if (!crew) {
-      if (!state.adapter.shared || obPendingCreate) {
-        crew = await state.adapter.createCrew(code, { ...DEFAULT_SETTINGS, challenge_start: nextMonday() });
-      } else {
-        obPendingCreate = true;
-        $("ob-code-btn").textContent = "No crew found — tap again to start one";
-        return obErr(`No crew with code "${code}" yet.`);
-      }
-    }
-    obCrew = crew;
+    const crew = await state.adapter.findCrew(code);
+    if (!crew) return showCodeNotFound(code);
     obErr("");
-    $("ob-step-code").classList.add("hidden");
-    $("ob-step-profile").classList.remove("hidden");
-    const existing = await state.adapter.listProfiles(crew.id);
-    $("ob-existing").innerHTML = existing.map((p) =>
-      `<button data-id="${p.id}">${avatarChip(p.avatar)}${esc(p.name)}</button>`).join("");
-    $("ob-existing").querySelectorAll("button").forEach((b) =>
-      b.addEventListener("click", () => finishOnboarding(existing.find((p) => p.id === b.dataset.id))));
-    $("ob-avatars").innerHTML = AVATARS.map((a) => `<button data-a="${a}" ${a === obAvatar ? 'class="sel"' : ""} aria-label="${a}">${avatarHTML(a)}</button>`).join("");
-    $("ob-avatars").querySelectorAll("button").forEach((b) =>
-      b.addEventListener("click", () => {
-        obAvatar = b.dataset.a;
-        $("ob-avatars").querySelectorAll("button").forEach((x) => {
-          x.classList.toggle("sel", x === b);
-          x.style.background = x === b ? AVATAR_COLORS[obColor] : "";
-        });
-      }));
-    $("ob-colors").innerHTML = Object.entries(AVATAR_COLORS).map(([k, v]) =>
-      `<button data-c="${k}" ${k === obColor ? 'class="sel"' : ""} style="background:${v}" aria-label="${k}"></button>`).join("");
-    $("ob-colors").querySelectorAll("button").forEach((b) =>
-      b.addEventListener("click", () => {
-        obColor = b.dataset.c;
-        $("ob-colors").querySelectorAll("button").forEach((x) => x.classList.toggle("sel", x === b));
-        const sel = $("ob-avatars").querySelector("button.sel");
-        if (sel) sel.style.background = AVATAR_COLORS[obColor];
-      }));
+    await enterCrew(crew);
   } catch (e) { obErr("Couldn't reach the crew database. Try again."); console.error(e); }
 });
+
+function showCodeNotFound(code) {
+  $("ob-notfound-code").textContent = code;
+  $("ob-code-notfound").classList.remove("hidden");
+  obErr("");
+  $("crew-code").focus();
+}
+function hideCodeNotFound() {
+  $("ob-code-notfound").classList.add("hidden");
+}
+// editing the code implicitly means "let me fix it" — clear the confirmation panel
+$("crew-code").addEventListener("input", hideCodeNotFound);
+
+$("ob-notfound-fix").addEventListener("click", () => {
+  hideCodeNotFound();
+  $("crew-code").focus();
+  $("crew-code").select();
+});
+
+$("ob-notfound-create").addEventListener("click", async () => {
+  const code = $("crew-code").value.trim().toUpperCase();
+  try {
+    const crew = await state.adapter.createCrew(code, { ...DEFAULT_SETTINGS, challenge_start: nextMonday() });
+    hideCodeNotFound();
+    await enterCrew(crew);
+  } catch (e) { obErr("Couldn't reach the crew database. Try again."); console.error(e); }
+});
+
+async function enterCrew(crew) {
+  obCrew = crew;
+  $("ob-step-code").classList.add("hidden");
+  $("ob-step-profile").classList.remove("hidden");
+  $("ob-step-profile").classList.add("ob-step-in");
+  const existing = await state.adapter.listProfiles(crew.id);
+  $("ob-existing").innerHTML = existing.map((p) =>
+    `<button data-id="${p.id}">${avatarChip(p.avatar)}${esc(p.name)}</button>`).join("");
+  $("ob-existing").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => finishOnboarding(existing.find((p) => p.id === b.dataset.id))));
+  $("ob-avatars").innerHTML = AVATARS.map((a) => `<button data-a="${a}" ${a === obAvatar ? 'class="sel"' : ""} aria-label="${a}">${avatarHTML(a)}</button>`).join("");
+  $("ob-avatars").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      obAvatar = b.dataset.a;
+      $("ob-avatars").querySelectorAll("button").forEach((x) => {
+        x.classList.toggle("sel", x === b);
+        x.style.background = x === b ? AVATAR_COLORS[obColor] : "";
+      });
+    }));
+  $("ob-colors").innerHTML = Object.entries(AVATAR_COLORS).map(([k, v]) =>
+    `<button data-c="${k}" ${k === obColor ? 'class="sel"' : ""} style="background:${v}" aria-label="${k}"></button>`).join("");
+  $("ob-colors").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      obColor = b.dataset.c;
+      $("ob-colors").querySelectorAll("button").forEach((x) => x.classList.toggle("sel", x === b));
+      const sel = $("ob-avatars").querySelector("button.sel");
+      if (sel) sel.style.background = AVATAR_COLORS[obColor];
+    }));
+}
 
 $("ob-create-btn").addEventListener("click", async () => {
   const name = $("ob-name").value.trim();
@@ -215,6 +433,22 @@ function nextMonday() {
 
 const dial = $("dial");
 let dragging = false, lastAngle = 0;
+
+// first-run dial hint: shown until the first successful crank (or a manual
+// dismiss), then never again — flag persists in localStorage.
+const DIAL_HINT_SEEN_KEY = "pushpact-dial-hint-seen";
+const dialHintSeen = () => !!localStorage.getItem(DIAL_HINT_SEEN_KEY);
+function markDialHintSeen() {
+  localStorage.setItem(DIAL_HINT_SEEN_KEY, "1");
+  $("dial-hint").classList.add("hidden");
+  $("dial-hint-note").classList.add("hidden");
+}
+function maybeShowDialHint() {
+  if (dialHintSeen()) return;
+  $("dial-hint").classList.remove("hidden");
+  $("dial-hint-note").classList.remove("hidden");
+}
+$("dial-hint-dismiss").addEventListener("click", (e) => { e.stopPropagation(); markDialHintSeen(); });
 
 function angleOf(e) {
   const r = dial.getBoundingClientRect();
@@ -254,6 +488,7 @@ dial.addEventListener("pointermove", (e) => {
     const c = Math.abs(state.compose);
     hapticTick(c && c % REPS_PER_REV === 0 ? 26 : c % 5 === 0 ? 9 : 3);
     if (crossedRev(before, state.compose)) lapDischarge();
+    if (!dialHintSeen()) markDialHintSeen(); // first successful crank teaches itself
     scheduleDialRender();
   }
 });
@@ -264,59 +499,63 @@ function crossedRev(before, after) {
 }
 function lapDischarge() {
   dial.classList.add("discharge");
-  spawnSparks(10);
   setTimeout(() => dial.classList.remove("discharge"), 600);
 }
 ["pointerup", "pointercancel"].forEach((ev) =>
   dial.addEventListener(ev, () => { dragging = false; dial.classList.remove("dragging"); }));
 
-// quick-add chips: accessible, obvious alternative to cranking (council fix)
+// quick-add chips: accessible, obvious alternative to cranking (council fix).
+// Unified contract (2026-07-23): chips commit INSTANTLY everywhere, same as
+// Home's — homeQuickAdd (below) already does exactly this for state.me/today(),
+// so Today's chips just call it directly. The dial keeps the only staged,
+// crank-then-Bank flow left in the app.
 document.querySelectorAll(".qchip").forEach((b) =>
-  b.addEventListener("click", () => {
-    const n = parseInt(b.dataset.add, 10);
-    const before = state.compose;
-    state.rotation = Math.min(MAX_SET * DEG_PER_REP, state.rotation + n * DEG_PER_REP);
-    state.compose = Math.round(state.rotation / DEG_PER_REP);
-    hapticTick(5);
-    if (crossedRev(before, state.compose)) lapDischarge();
-    renderDial();
-  }));
+  b.addEventListener("click", () => homeQuickAdd(parseInt(b.dataset.add, 10), b)));
 
 $("bank-btn").addEventListener("click", async () => {
+  const btn = $("bank-btn");
+  if (btn.disabled) return; // a commit is already in flight — ignore the re-tap
   const reps = state.compose;
   if (!reps) return;
-  if (reps < 0 && !window.confirm(`Remove ${-reps} pushups from today's tally?`)) return;
-  const before = myTallyToday();
-  await state.adapter.addSet(state.me.id, today(), reps);
-  state.compose = 0; state.rotation = 0;
-  hapticTick(20);
-  localStorage.setItem("pushpact-banks", String((parseInt(localStorage.getItem("pushpact-banks"), 10) || 0) + 1));
-  await refetch();
-  const target = targetFor(today(), state.settings);
-  if (before < target && before + reps >= target) {
-    dial.classList.add("smashed");
-    spawnSparks();
-    setTimeout(() => dial.classList.remove("smashed"), 700);
+  if (reps < 0 && !(await confirmSheet(`Wind ${-reps} back off today's tally?`, { confirmLabel: "Wind it back", cancelLabel: "Leave it" }))) return;
+  // lock immediately (synchronously, before the await below) so a fast
+  // double-tap can't slip a second commit in with a stale `before`;
+  // renderDial() re-derives the "real" disabled state (compose === 0) once
+  // the commit lands, so there's no separate re-enable step needed here.
+  btn.disabled = true;
+  try {
+    await serializeCommit(async () => {
+      const before = myTallyToday();
+      await state.adapter.addSet(state.me.id, today(), reps);
+      state.compose = 0; state.rotation = 0;
+      hapticTick(20);
+      localStorage.setItem("pushpact-banks", String((parseInt(localStorage.getItem("pushpact-banks"), 10) || 0) + 1));
+      await refetch();
+      const target = targetFor(today(), state.settings);
+      if (before < target && before + reps >= target) {
+        dial.classList.add("smashed");
+        setTimeout(() => dial.classList.remove("smashed"), 700);
+      }
+      maybeCelebrateTargetMet(before, reps);
+      maybeCelebrateStreak();
+    });
+  } finally {
+    // if the commit threw (network/storage), compose is untouched and the
+    // button would otherwise stay dead until the next render — re-derive.
+    renderDial();
   }
 });
 
-// volt spark burst from the dial rim on target smash
-function spawnSparks(count = 26) {
-  const r = dial.getBoundingClientRect().width / 2;
-  for (let i = 0; i < count; i++) {
-    const s = document.createElement("span");
-    s.className = "spark" + (i % 3 === 2 ? " teal" : "");
-    const ang = Math.random() * Math.PI * 2;
-    const dist = r * (0.9 + Math.random() * 0.9);
-    s.style.setProperty("--dx", `${Math.cos(ang) * dist}px`);
-    s.style.setProperty("--dy", `${Math.sin(ang) * dist}px`);
-    s.style.animationDelay = `${Math.random() * 0.12}s`;
-    dial.appendChild(s);
-    setTimeout(() => s.remove(), 1000);
-  }
-}
-
 function myTallyToday() { return dayTally(state.sets, state.me.id, today()); }
+
+// ledger "thump" tracking (Wave 4): a stamp snaps in with a little scale/
+// rotate settle only the moment its set is FIRST rendered on the ledger —
+// never on every re-render (that would replay the animation on every tab
+// switch/refetch). seenLedgerSetIds is seeded with whatever's already there
+// the first time a given day is rendered, so opening Today never animates
+// the whole ledger; only a genuinely new bank does.
+let seenLedgerSetIds = new Set();
+let seenLedgerDay = null;
 
 // odometer-style count-up when the banked tally changes
 let shownTally = null;
@@ -354,12 +593,12 @@ function renderDial() {
     knobDeg = deg;
     ring = (state.compose >= REPS_PER_REV)
       ? `conic-gradient(var(--accent) 0deg 360deg)`
-      : `conic-gradient(var(--accent) 0deg ${deg}deg, #EDE3D0 ${deg}deg 360deg)`;
+      : `conic-gradient(var(--accent) 0deg ${deg}deg, var(--dial-ring) ${deg}deg 360deg)`;
   } else {
     const rem = Math.min(-state.compose, REPS_PER_REV);
     const deg = (rem / REPS_PER_REV) * 360;
     knobDeg = 360 - deg;
-    ring = `conic-gradient(#EDE3D0 0deg ${360 - deg}deg, rgba(178,58,46,.5) ${360 - deg}deg 360deg)`;
+    ring = `conic-gradient(var(--dial-ring) 0deg ${360 - deg}deg, rgba(178,58,46,.5) ${360 - deg}deg 360deg)`;
   }
   $("dial-ring").style.background = ring;
   $("knob-arm").style.transform = `rotate(${knobDeg}deg)`;
@@ -374,7 +613,7 @@ function renderDial() {
     progFill = `var(--accent) 0deg ${progDeg * 0.55}deg, #5EA86B ${progDeg * 0.8}deg, var(--volt) ${progDeg}deg`;
   else progFill = `var(--accent) 0deg ${progDeg}deg`;
   $("progress-ring").style.background =
-    `conic-gradient(${progFill}, rgba(31,27,22,.08) ${progDeg}deg 360deg)`;
+    `conic-gradient(${progFill}, rgba(var(--texture-rgb),.08) ${progDeg}deg 360deg)`;
   const c = $("compose");
   c.textContent = state.compose
     ? `${state.compose > 0 ? "+" : ""}${state.compose}`
@@ -387,33 +626,47 @@ function renderDial() {
   $("togo-text").textContent = done ? "smashed" : `${target - tally} to go`;
   const bank = $("bank-btn");
   bank.disabled = !state.compose;
-  bank.textContent = state.compose
+  bank.classList.toggle("reverse", state.compose < 0);
+  bank.setAttribute("aria-label", state.compose
     ? (state.compose > 0 ? `Bank ${state.compose} pushups` : `Remove ${-state.compose} pushups`)
-    : "Crank the dial to bank";
+    : "Crank the dial to bank");
 }
 
 // ---------- today ----------
 
 function renderToday() {
   renderDial();
+  maybeShowDialHint();
   renderRope();
   const rows = state.sets
     .filter((s) => s.profile_id === state.me.id && s.day === today())
     .sort((a, b) => (a.logged_at < b.logged_at ? -1 : 1));
+  if (seenLedgerDay !== today()) {
+    // first render of a new day: mark whatever's already banked as "seen" so
+    // it never thumps in on load — only a genuinely fresh bank animates
+    seenLedgerDay = today();
+    seenLedgerSetIds = new Set(rows.map((r) => r.id));
+  }
   $("ledger-rows").innerHTML = rows.length
-    ? rows.map((s) => `
+    ? rows.map((s) => {
+        const isNew = !seenLedgerSetIds.has(s.id);
+        seenLedgerSetIds.add(s.id);
+        return `
       <div class="l-row" data-sid="${s.id}" title="Tap to remove this set">
-        <span class="reps ${s.reps < 0 ? "neg" : ""}">${s.reps}</span>
-        <span class="stamps">${stamps(s.reps)}</span>
-        ${isLate(s) ? '<span class="late">late</span>' : ""}
-        <span class="t">${fmtTime(s.logged_at)}</span>
-      </div>`).join("")
+        <div class="l-row-head">
+          <span class="reps ${s.reps < 0 ? "neg" : ""}">${s.reps}</span>
+          ${isLate(s) && !localStorage.getItem("pushpact-date-override") ? '<span class="late">late</span>' : ""}
+          <span class="t">${fmtTime(s.logged_at)}</span>
+        </div>
+        <div class="stamps">${stamps(s.reps, isNew)}</div>
+      </div>`;
+      }).join("")
     : '<div class="l-empty">Nothing banked yet. The dial awaits.</div>';
   $("ledger-rows").querySelectorAll(".l-row[data-sid]").forEach((row) =>
     row.addEventListener("click", async () => {
       const s = rows.find((x) => x.id === row.dataset.sid);
       if (!s) return;
-      if (!window.confirm(`Remove this set of ${s.reps}?`)) return;
+      if (!(await confirmSheet(`Tear this set of ${s.reps} out of today's ledger? Gone for good.`, { confirmLabel: "Tear it out", cancelLabel: "Leave it" }))) return;
       await state.adapter.removeSet(s.id);
       refetch();
     }));
@@ -426,7 +679,7 @@ function renderToday() {
     const ex = state.statuses.find((st) => st.profile_id === m.id && st.kind === "excuse" &&
       (st.day === today() || st.day === addDays(today(), -1)));
     if (ex?.excuse_text) {
-      note = `<div class="postit${postitCls(ex.day)}"><small>${esc(m.name)} · ${ex.day === today() ? "today" : "yesterday"}</small>${esc(ex.excuse_text)}</div>`;
+      note = `<div class="postit${postitAgeClass(ex.day)}"><small>${esc(m.name)} · ${ex.day === today() ? "today" : "yesterday"}</small>${esc(ex.excuse_text)}</div>`;
       break;
     }
   }
@@ -449,22 +702,34 @@ function renderToday() {
   eb.textContent = excusedToday ? "Excused ✓ (tap to edit)" : "Write an excuse";
 }
 
-function stamps(n) {
-  const count = Math.min(Math.abs(n), 30);
+// Ink tally marks — groups of 4 verticals + a diagonal strike for the 5th,
+// every 10th landing heavier (.ten). Full-width now (Wave 4 rebuild), wraps
+// across lines rather than overflowing on a big day; glyph count is capped
+// well below any real rep count so a 100+ rep single set still renders a
+// legible tally, not a wall of ticks. `animate` (true only for a set that
+// just landed, per the seen-set guard in renderToday) adds the "thump"
+// snap-in class with a per-tick stagger so a multi-stamp bank cascades in.
+function stamps(n, animate) {
+  const count = Math.min(Math.abs(n), 50);
   let out = "";
-  for (let i = 1; i <= count; i++)
-    out += `<i class="stamp${i % 10 === 0 ? " five ten" : i % 5 === 0 ? " five" : ""}"></i>`;
+  for (let i = 1; i <= count; i++) {
+    const five = i % 5 === 0, ten = i % 10 === 0;
+    const cls = ["stamp", five ? "five" : "", ten ? "ten" : "", animate ? "thump" : ""].filter(Boolean).join(" ");
+    const delay = animate ? ` style="animation-delay:${Math.min(i, 20) * 18}ms"` : "";
+    out += `<i class="${cls}"${delay}></i>`;
+  }
   return out;
 }
 function fmtTime(iso) {
   return iso ? new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).toLowerCase() : "";
 }
 
-// council (Expansionist): a post-it curls a little more each day it hangs there.
-// True read-tracking needs the shared DB; until then age since posting stands in.
-function postitCls(day) {
+// Wave 4 (council reversal): an unaddressed excuse gets LOUDER with age, not
+// quieter — replaces the old "curls a little more" decay. True read-tracking
+// needs the shared DB; until then, age since posting stands in as the proxy.
+function postitAgeClass(day) {
   const age = Math.min(3, Math.max(0, Math.round((parseDay(today()) - parseDay(day)) / 86400000)));
-  return age ? ` curl-${age}` : "";
+  return age ? ` aged-${age}` : "";
 }
 
 // best single day, computed from the sets already in memory — pure display
@@ -474,9 +739,18 @@ function personalBest(sets, pid) {
   return Object.values(per).reduce((a, b) => Math.max(a, b), 0);
 }
 
+// Wave 4: the rope now scales with real streak length instead of flatlining
+// at 6 — a 60-day streak used to render identically to a 7-day one. Inside
+// the first week it's still one knot per day (unchanged, most-common case).
+// Past that, one knot per COMPLETE week; every 4th week (28/56/84 days,
+// matching the celebration milestones) lands heavier; a week still in
+// progress is a light dashed "forming" knot; past WEEK_CAP complete weeks the
+// rest condense into one "+N" chip so the rope stays compact and legible even
+// at 100+ days. streak() itself always comes from logic.js — this only
+// changes how many days it represents get drawn as knots.
+const ROPE_WEEK_CAP = 8;
 function renderRope() {
   const n = streak({ sets: state.sets, statuses: state.statuses, profileId: state.me.id, today: today(), settings: state.settings });
-  const shown = Math.min(n, 6);
   // council (loss aversion): the next knot visibly frays when today is still unmet
   // and a streak is on the line — more urgently in the evening.
   const st = dayState({ sets: state.sets, statuses: state.statuses, profileId: state.me.id, day: today(), today: today(), settings: state.settings });
@@ -486,7 +760,27 @@ function renderRope() {
   // hanging slack and easy once today is banked
   const safe = st.state === "met" || st.state === "rest";
   let knots = "";
-  for (let i = 0; i < shown; i++) knots += `<span class="knot${n > 0 && i === shown - 1 ? " volt" : ""}"></span>`;
+  if (n <= 7) {
+    for (let i = 0; i < n; i++) knots += `<span class="knot${i === n - 1 ? " volt" : ""}"></span>`;
+  } else {
+    const fullWeeks = Math.floor(n / 7);
+    const intoWeek = n % 7;
+    if (fullWeeks <= ROPE_WEEK_CAP) {
+      for (let w = 1; w <= fullWeeks; w++) {
+        const milestone = w % 4 === 0;
+        const isLast = w === fullWeeks && intoWeek === 0;
+        knots += `<span class="knot week${milestone ? " milestone" : ""}${isLast ? " volt" : ""}"></span>`;
+      }
+    } else {
+      for (let w = 1; w < ROPE_WEEK_CAP; w++) {
+        const milestone = w % 4 === 0;
+        knots += `<span class="knot week${milestone ? " milestone" : ""}"></span>`;
+      }
+      const rem = fullWeeks - (ROPE_WEEK_CAP - 1);
+      knots += `<span class="knot week overflow" title="${rem} more week${rem === 1 ? "" : "s"} banked">+${rem}</span>`;
+    }
+    if (intoWeek > 0) knots += `<span class="knot week partial volt"></span>`;
+  }
   knots += safe
     ? '<span class="knot fray slack"></span>'
     : `<span class="knot fray${atRisk ? " at-risk" : ""}${urgent ? " urgent" : ""}"></span>`;
@@ -511,86 +805,15 @@ $("rest-btn").addEventListener("click", async () => {
 $("excuse-btn").addEventListener("click", () => openExcuse(today()));
 $("excuse-cancel").addEventListener("click", () => $("excuse-modal").classList.add("hidden"));
 
-// cycling ghost placeholders + particle vanish on submit (Aceternity vanish input, vanilla)
-const GHOST_EXCUSES = [
-  "the dog sat on me and I respected that",
-  "gravity felt personal today",
-  "my arms filed for annual leave",
-  "the floor was too far away",
-  "I was carbo-loading. all day.",
-  "shoulder said no, and I listen to my body",
-  "got pinned under a very heavy blanket",
-  "training my neck by looking at the ceiling",
-];
-let ghostIdx = 0, ghostTimer = null;
-function startGhost() {
-  const ghost = $("excuse-ghost").firstElementChild;
-  const tick = () => {
-    ghost.textContent = $("excuse-text").value ? "" : GHOST_EXCUSES[ghostIdx % GHOST_EXCUSES.length];
-    ghostIdx++;
-  };
-  tick();
-  clearInterval(ghostTimer);
-  ghostTimer = setInterval(tick, 3000);
-}
-$("excuse-text").addEventListener("input", () => {
-  $("excuse-ghost").firstElementChild.textContent = $("excuse-text").value ? "" : GHOST_EXCUSES[ghostIdx % GHOST_EXCUSES.length];
-});
-
-function vanishText(done) {
-  const ta = $("excuse-text");
-  const canvas = $("excuse-canvas");
-  const dpr = window.devicePixelRatio || 1;
-  const w = ta.offsetWidth, h = ta.offsetHeight;
-  canvas.width = w * dpr; canvas.height = h * dpr;
-  const ctx = canvas.getContext("2d");
-  ctx.scale(dpr, dpr);
-  ctx.font = "600 24px Caveat, cursive";
-  ctx.fillStyle = "#4A3A12";
-  const words = ta.value.split(" ");
-  let x = 2, y = 24;
-  const lineH = 30, maxW = w - 4;
-  words.forEach((word) => {
-    const ww = ctx.measureText(word + " ").width;
-    if (x + ww > maxW) { x = 2; y += lineH; }
-    ctx.fillText(word, x, y); x += ww;
-  });
-  const img = ctx.getImageData(0, 0, w * dpr, h * dpr);
-  const parts = [];
-  for (let py = 0; py < img.height; py += 3 * dpr) {
-    for (let px = 0; px < img.width; px += 3 * dpr) {
-      if (img.data[(py * img.width + px) * 4 + 3] > 120) {
-        parts.push({ x: px / dpr, y: py / dpr, vx: (Math.random() - 0.2) * 3.2, vy: (Math.random() - 0.5) * 2.4, a: 1 });
-      }
-    }
-  }
-  ta.classList.add("vanishing");
-  const t0 = performance.now();
-  (function frame(t) {
-    const p = (t - t0) / 650;
-    ctx.clearRect(0, 0, w, h);
-    parts.forEach((pt) => {
-      pt.x += pt.vx; pt.y += pt.vy; pt.a = Math.max(0, 1 - p * 1.15);
-      ctx.globalAlpha = pt.a;
-      ctx.fillRect(pt.x, pt.y, 2.2, 2.2);
-    });
-    ctx.globalAlpha = 1;
-    if (p < 1) requestAnimationFrame(frame);
-    else { ctx.clearRect(0, 0, w, h); ta.classList.remove("vanishing"); done(); }
-  })(t0);
-}
-
-$("excuse-save").addEventListener("click", () => {
+$("excuse-save").addEventListener("click", async () => {
   const text = $("excuse-text").value.trim();
   if (!text) return;
   hapticTick(12);
-  vanishText(async () => {
-    await state.adapter.removeStatus(state.me.id, state.excuseDay, "excuse");
-    await state.adapter.addStatus({ profile_id: state.me.id, day: state.excuseDay, kind: "excuse", excuse_text: text });
-    $("excuse-text").value = "";
-    $("excuse-modal").classList.add("hidden");
-    refetch();
-  });
+  await state.adapter.removeStatus(state.me.id, state.excuseDay, "excuse");
+  await state.adapter.addStatus({ profile_id: state.me.id, day: state.excuseDay, kind: "excuse", excuse_text: text });
+  $("excuse-text").value = "";
+  $("excuse-modal").classList.add("hidden");
+  refetch();
 });
 
 function openExcuse(day) {
@@ -599,7 +822,6 @@ function openExcuse(day) {
   $("excuse-text").value = existing?.excuse_text ?? "";
   $("excuse-delete").classList.toggle("hidden", !existing);
   $("excuse-modal").classList.remove("hidden");
-  startGhost();
   $("excuse-text").focus();
 }
 $("excuse-delete").addEventListener("click", async () => {
@@ -610,6 +832,13 @@ $("excuse-delete").addEventListener("click", async () => {
 
 // ---------- crew ----------
 
+// Wave 4 rebuild: Crew as a corkboard/fridge-door — avatars 2-3x the old
+// 38px are now the dominant visual per card, the day-state colour rings the
+// avatar (plus the existing text chip, so it's never colour-only), and any
+// excuse renders as a real pinned post-it at legible Caveat scale instead of
+// a 150px box tucked in the corner. Everything the old flat list showed is
+// still here: name/you-tag, streak+all-time+PB, today's tally, the 7-day
+// strip, data-pid — just laid out for the avatar to lead.
 function renderCrew() {
   const cards = state.profiles.map((p) => {
     const st = dayState({ sets: state.sets, statuses: state.statuses, profileId: p.id, day: today(), today: today(), settings: state.settings });
@@ -620,19 +849,24 @@ function renderCrew() {
     }).join("");
     const total = allTimeTotal(state.sets, p.id);
     const stk = streak({ sets: state.sets, statuses: state.statuses, profileId: p.id, today: today(), settings: state.settings });
+    const pb = personalBest(state.sets, p.id);
     const ex = state.statuses.find((s) => s.profile_id === p.id && s.kind === "excuse" &&
       (s.day === today() || s.day === addDays(today(), -1)));
     return `
       <div class="crew-card" data-pid="${p.id}">
-        <div class="who">
-          ${avatarChip(p.avatar)}
-          <div><div class="nm">${esc(p.name)}${p.id === state.me.id ? " (you)" : ""}</div>
-          <div class="sub">${stk} day streak · ${total.toLocaleString()} all-time${personalBest(state.sets, p.id) > 0 ? ` <span class="pb-badge">PB ${personalBest(state.sets, p.id)}</span>` : ""}</div></div>
-          <span class="state-chip bg-${st.state}">${stateLabel(st)}</span>
+        <div class="cc-top">
+          ${avatarChip(p.avatar, `cc-avatar st-${st.state}`)}
+          <div class="cc-info">
+            <div class="cc-name-row">
+              <span class="nm">${esc(p.name)}${p.id === state.me.id ? " (you)" : ""}</span>
+              <span class="state-chip bg-${st.state}">${stateLabel(st)}</span>
+            </div>
+            <div class="big"><span class="n">${st.tally}</span><span class="of">of ${st.target} today</span></div>
+            <div class="sub">${stk} day streak · ${total.toLocaleString()} all-time${pb > 0 ? ` <span class="pb-badge">PB ${pb}</span>` : ""}</div>
+          </div>
         </div>
-        <div class="big"><span class="n">${st.tally}</span><span class="of">of ${st.target} today</span></div>
         <div class="strip">${strip}</div>
-        ${ex?.excuse_text && p.id !== state.me.id ? `<div class="postit${postitCls(ex.day)}"><small>${ex.day === today() ? "today" : "yesterday"}</small>${esc(ex.excuse_text)}</div>` : ""}
+        ${ex?.excuse_text ? `<div class="cc-postit"><div class="postit${postitAgeClass(ex.day)}"><small>${ex.day === today() ? "today" : "yesterday"}</small>${esc(ex.excuse_text)}</div></div>` : ""}
       </div>`;
   }).join("");
   $("crew-cards").innerHTML = cards;
@@ -646,6 +880,10 @@ $("share-btn").addEventListener("click", async () => {
 });
 
 // ---------- history ----------
+
+let lastHistView = null; // guards the calendar/ladder swap-in animation so it
+                          // only plays when the view actually changed, not on
+                          // every refetch/re-render of the same view.
 
 function renderHistory() {
   if (!state.histMonth) state.histMonth = today().slice(0, 7);
@@ -670,17 +908,40 @@ function renderHistory() {
   const lineEnd = judged.length ? judged[judged.length - 1].d : 0;
   let cells = ["M", "T", "W", "T", "F", "S", "S"].map((d) => `<span class="dow">${d}</span>`).join("");
   for (let i = 0; i < lead; i++) cells += '<span class="hist-cell blank"></span>';
+  let cellIdx = 0; // stagger index for the tile-fall swap-in animation; must
+                    // increment for both branches below so it never jumps.
   for (const x of days) {
-    if (x.future) { cells += `<span class="hist-cell future"><span class="d">${x.d}</span></span>`; continue; }
+    if (x.future) { cells += `<span class="hist-cell future" style="--i:${cellIdx++}"><span class="d">${x.d}</span></span>`; continue; }
     const rowEnd = (lead + x.d) % 7 === 0;
     const ink = x.d < lineEnd && !rowEnd ? " ink" : "";
-    cells += `<span class="hist-cell${ink}" data-day="${x.day}"><span class="d">${x.d}</span><span class="st bg-${x.st.state}"></span></span>`;
+    cells += `<span class="hist-cell${ink}" data-day="${x.day}" style="--i:${cellIdx++}"><span class="d">${x.d}</span><span class="st bg-${x.st.state}"></span></span>`;
   }
   $("hist-grid").classList.toggle("perfect", perfect);
   $("hist-grid").innerHTML = cells;
   $("hist-grid").querySelectorAll(".hist-cell[data-day]").forEach((c) =>
     c.addEventListener("click", () => { state.histSelected = c.dataset.day; renderHistDetail(); }));
   renderHistDetail();
+
+  // Wave 5: calendar <-> ladder toggle. Appended at the tail of the existing
+  // function rather than woven through it — the calendar's own rendering
+  // above is untouched, this only decides which container is visible (and
+  // builds the ladder when it's the active one).
+  const hv = histView();
+  $("hist-view-toggle").querySelectorAll(".hv-btn").forEach((b) => b.classList.toggle("on", b.dataset.view === hv));
+  $("hist-view-toggle").classList.toggle("v-ladder", hv === "ladder");
+  $("hist-nav").classList.toggle("hidden", hv !== "calendar");
+  $("hist-calendar-view").classList.toggle("hidden", hv !== "calendar");
+  $("hist-ladder-view").classList.toggle("hidden", hv !== "ladder");
+  // Swap-in animation (tiles fall / rungs build) only plays when the view
+  // actually changed — not on every refetch/re-render of the same view.
+  // The class goes on the ancestor container before the content that needs
+  // to animate is (re)built, so freshly-inserted children pick it up via
+  // the `.hist-anim .hist-cell` / `.hist-anim .rung-row` descendant rules.
+  const viewChanged = hv !== lastHistView;
+  lastHistView = hv;
+  $("hist-calendar-view").classList.toggle("hist-anim", viewChanged && hv === "calendar");
+  $("hist-ladder-view").classList.toggle("hist-anim", viewChanged && hv === "ladder");
+  if (hv === "ladder") renderLadder();
 }
 
 function renderHistDetail() {
@@ -690,7 +951,7 @@ function renderHistDetail() {
   const pid = state.histPerson;
   const st = dayState({ sets: state.sets, statuses: state.statuses, profileId: pid, day, today: today(), settings: state.settings });
   const rows = state.sets.filter((s) => s.profile_id === pid && s.day === day)
-    .map((s) => `${s.reps > 0 ? "+" : ""}${s.reps} at ${fmtTime(s.logged_at)}${isLate(s) ? " (late)" : ""}`).join("<br>") || "No sets logged.";
+    .map((s) => `${s.reps > 0 ? "+" : ""}${s.reps} at ${fmtTime(s.logged_at)}${isLate(s) && !localStorage.getItem("pushpact-date-override") ? " (late)" : ""}`).join("<br>") || "No sets logged.";
   const mine = pid === state.me.id;
   el.innerHTML = `
     <div class="dd">${parseDay(day).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })} — ${st.tally} of ${st.target} · ${st.state}</div>
@@ -726,7 +987,113 @@ function shiftMonth(n) {
   renderHistory();
 }
 
+// ---------- ladder view (Wave 5) ----------
+// The "Rung" half of the brand made literal: one horizontal rung per week of
+// the challenge, week 1 at the bottom, climbing up through the current
+// (volt) week to a few pending rungs ahead. Toggled alongside the existing
+// calendar; choice persists in localStorage. All math (targets, day states)
+// comes from logic.js — this only decides how to draw it.
+const HIST_VIEW_KEY = "pushpact-hist-view";
+function histView() {
+  return localStorage.getItem(HIST_VIEW_KEY) === "ladder" ? "ladder" : "calendar";
+}
+$("hist-view-toggle").addEventListener("click", (e) => {
+  const btn = e.target.closest(".hv-btn");
+  if (!btn) return;
+  localStorage.setItem(HIST_VIEW_KEY, btn.dataset.view);
+  renderHistory();
+});
+
+const LADDER_UPCOMING = 3;   // small number of pending rungs shown above "now"
+const LADDER_MIN_WEEKS = 4;  // floor so a brand-new/pre-start crew still sees a ladder
+
+function weekStartOfWeekNum(n) {
+  return addDays(state.settings.challenge_start, 7 * (n - 1));
+}
+// deterministic pseudo-random hand-made wobble (no Math.random — must not
+// reshuffle on every re-render), same trick used to jitter noisy textures elsewhere
+function rungJitter(n) {
+  const h = Math.sin(n * 12.9898) * 43758.5453;
+  return ((h - Math.floor(h)) - 0.5) * 1.4; // ~ -0.7deg .. 0.7deg
+}
+
+let ladderScrolledFor = null; // guards the one-time auto-scroll-to-current below
+function renderLadder() {
+  const settings = state.settings;
+  const start = settings.challenge_start;
+  const t = today();
+  const daysSince = daysBetween(start, t);
+  // pre-start (challenge hasn't begun): no "current" week yet, but the ladder
+  // ahead still renders — every week below falls into the "future" branch.
+  const currentWeekNum = daysSince < 0 ? 0 : Math.floor(daysSince / 7) + 1;
+  const totalWeeks = Math.max(currentWeekNum + LADDER_UPCOMING, LADDER_MIN_WEEKS);
+  const pid = state.histPerson;
+  const lo = settings.target_start, hi = Math.max(settings.target_cap, lo + 1);
+
+  let rowsHTML = "";
+  for (let w = totalWeeks; w >= 1; w--) {
+    const wkStart = weekStartOfWeekNum(w);
+    const wkEnd = addDays(wkStart, 6);
+    const target = targetFor(wkStart, settings);
+    const atCap = settings.target_step > 0 && target >= settings.target_cap;
+    const capStart = atCap && (w === 1 || targetFor(weekStartOfWeekNum(w - 1), settings) < settings.target_cap);
+
+    let cls = "future";
+    if (wkEnd < t) cls = "past";
+    else if (wkStart <= t && t <= wkEnd) cls = "current";
+
+    const frac = Math.min(1, Math.max(0, (target - lo) / (hi - lo)));
+    const thickness = Math.round(4 + frac * 10);     // "heavier target, heavier rung"
+    const fontSize = Math.round(13 + frac * 6);
+
+    // 7 small notches, one per day of the week — same day-state read the
+    // calendar uses (met/rest/excused/missed/pending); future days inside the
+    // current week, and every day of a future week, come back "pending" from
+    // dayState itself, so no separate future-day branch is needed here.
+    let ticks = "";
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(wkStart, i);
+      const st = dayState({ sets: state.sets, statuses: state.statuses, profileId: pid, day, today: t, settings });
+      ticks += `<i class="rt bg-${st.state}" title="${day}: ${st.state}"></i>`;
+    }
+
+    // Stagger index is reversed relative to emission order: rows are built
+    // highest week first (top of the DOM, idx 0) down to week 1 last (bottom,
+    // idx totalWeeks-1). Reversed = (totalWeeks-1) - idx = w-1, so the
+    // bottom-most (week 1) row gets --i:0 and animates first, climbing up.
+    const rungAnimIdx = w - 1;
+    rowsHTML += `
+      <div class="rung-row ${cls}${capStart ? " cap-start" : ""}" data-week="${w}" style="--i:${rungAnimIdx}">
+        <span class="rung-wk">Wk ${w}</span>
+        <span class="rung-zone">
+          <span class="rung-ticks">${ticks}</span>
+          <span class="rung-bar" style="height:${thickness}px;transform:rotate(${rungJitter(w).toFixed(2)}deg)"></span>
+          ${capStart ? '<span class="rung-cap-tag">cap</span>' : ""}
+        </span>
+        <span class="rung-target" style="font-size:${fontSize}px">${target}</span>
+      </div>`;
+  }
+  $("ladder-rungs").innerHTML = rowsHTML;
+
+  // Scroll the current (or, pre-start, the nearest) rung into view — but only
+  // the first time this person's ladder renders, never fighting a user who's
+  // mid-scroll on a later background refetch.
+  const scroller = $("ladder-scroll");
+  if (ladderScrolledFor !== pid) {
+    ladderScrolledFor = pid;
+    const focus = $("ladder-rungs").querySelector(".rung-row.current") || $("ladder-rungs").querySelector(".rung-row");
+    if (focus && scroller) {
+      scroller.scrollTop = Math.max(0, focus.offsetTop - scroller.clientHeight / 2 + focus.clientHeight / 2);
+    }
+  }
+}
+
 // ---------- settings ----------
+
+// profile-picker state — reset from state.me's actual saved values every
+// time Settings renders, so reopening the screen never shows a stale pick
+// left over from a previous unsaved edit
+let setAvatar = "pumper", setColor = "teal";
 
 function renderSettings() {
   $("set-start").value = state.settings.target_start;
@@ -736,18 +1103,58 @@ function renderSettings() {
   $("set-startdate").value = state.settings.challenge_start;
   $("set-crewname").value = state.crew.name ?? "";
   $("set-crewcode").textContent = state.crew.crew_code;
+  $("set-sim-date").value = localStorage.getItem("pushpact-date-override") || "";
+
+  $("set-name").value = state.me.name;
+  const [curArt, curColor] = String(state.me.avatar || "pumper.teal").split(".");
+  // guard against pre-SVG-era plain-emoji avatars (no ".colour" suffix) —
+  // fall back to a valid pick rather than saving a malformed avatar string
+  setAvatar = AVATARS.includes(curArt) ? curArt : "pumper";
+  setColor = AVATAR_COLORS[curColor] ? curColor : "teal";
+  renderProfilePicker();
 }
+
+function renderProfilePicker() {
+  $("set-avatars").innerHTML = AVATARS.map((a) =>
+    `<button data-a="${a}" ${a === setAvatar ? 'class="sel"' : ""} aria-label="${a}"
+       style="${a === setAvatar ? `background:${AVATAR_COLORS[setColor]}` : ""}">${avatarHTML(a)}</button>`).join("");
+  $("set-avatars").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => { setAvatar = b.dataset.a; renderProfilePicker(); }));
+  $("set-colors").innerHTML = Object.entries(AVATAR_COLORS).map(([k, v]) =>
+    `<button data-c="${k}" ${k === setColor ? 'class="sel"' : ""} style="background:${v}" aria-label="${k}"></button>`).join("");
+  $("set-colors").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => { setColor = b.dataset.c; renderProfilePicker(); }));
+}
+
+$("set-profile-save").addEventListener("click", async () => {
+  const name = $("set-name").value.trim();
+  if (!name) { $("set-profile-msg").textContent = "Give us a name."; return; }
+  await state.adapter.updateProfile(state.me.id, name, `${setAvatar}.${setColor}`);
+  await refetch();
+  $("set-profile-msg").textContent = "Saved.";
+  setTimeout(() => ($("set-profile-msg").textContent = ""), 2000);
+});
+
+// "Challenge start (Monday)" has to actually BE a Monday — the escalation
+// math (targetFor) counts whole weeks from this date, while the rest-day
+// cap (weekStart) is anchored to real calendar Mondays; a non-Monday start
+// would let those two silently drift out of sync. <input type=date> lets
+// you pick any day, so snap it the moment it changes rather than relying
+// on the user to notice.
+$("set-startdate").addEventListener("change", (e) => {
+  if (e.target.value) e.target.value = weekStartOf(e.target.value);
+});
 
 $("set-save").addEventListener("click", async () => {
   const s = {
     ...state.settings,
     target_start: num("set-start", 1), target_step: num("set-step", 0),
     target_cap: num("set-cap", 1), rest_days_per_week: num("set-rest", 0),
-    challenge_start: $("set-startdate").value || state.settings.challenge_start,
+    challenge_start: $("set-startdate").value ? weekStartOf($("set-startdate").value) : state.settings.challenge_start,
   };
   const rulesChanged = ["target_start", "target_step", "target_cap", "rest_days_per_week", "challenge_start"]
     .some((k) => String(s[k]) !== String(state.settings[k]));
-  if (rulesChanged && !window.confirm("This changes the challenge for the whole crew, effective immediately. Apply?")) return;
+  if (rulesChanged && !(await confirmSheet("This rewrites the challenge for the whole crew, effective immediately — everyone's target moves. Apply it?", { confirmLabel: "Apply for everyone", cancelLabel: "Not yet" }))) return;
   await state.adapter.saveSettings(state.crew.id, s, $("set-crewname").value.trim());
   $("set-msg").textContent = "Saved. Applies to everyone immediately.";
   setTimeout(() => ($("set-msg").textContent = ""), 2500);
@@ -757,10 +1164,68 @@ function num(id, min) { const v = parseInt($(id).value, 10); return Number.isFin
 
 $("set-switch").addEventListener("click", () => { session.clear(); location.reload(); });
 
-$("set-erase").addEventListener("click", () => {
-  if (!confirm("Erase every crew, profile, and logged set on this phone? This can't be undone.")) return;
+// admin gate: hamburger menu -> "Admin" -> code prompt -> reveals the
+// admin cards in Settings (kept out of the way for everyday users; the
+// tiles stay hidden until unlocked). Same code as before, new entry point.
+$("menu-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  $("menu-dropdown").classList.toggle("hidden");
+});
+document.addEventListener("click", () => $("menu-dropdown").classList.add("hidden"));
+
+$("menu-admin").addEventListener("click", () => {
+  $("menu-dropdown").classList.add("hidden");
+  $("admin-modal-code").value = "";
+  $("admin-modal-err").classList.add("hidden");
+  $("admin-modal").classList.remove("hidden");
+});
+$("admin-modal-cancel").addEventListener("click", () => $("admin-modal").classList.add("hidden"));
+function tryAdminCode() {
+  if ($("admin-modal-code").value.trim().toLowerCase() === "knot") {
+    $("admin-modal").classList.add("hidden");
+    $("danger-zone").classList.remove("hidden");
+    $("sim-date-card").classList.remove("hidden");
+    $("state-dump-card").classList.remove("hidden");
+    switchScreen("settings");
+  } else {
+    $("admin-modal-err").classList.remove("hidden");
+  }
+}
+$("admin-modal-submit").addEventListener("click", tryAdminCode);
+$("admin-modal-code").addEventListener("keydown", (e) => { if (e.key === "Enter") tryAdminCode(); });
+
+$("set-erase").addEventListener("click", async () => {
+  const ok = await confirmSheet(
+    "Erase every crew, profile, and logged set stored on this phone? Every rep you've ever banked, gone — no undo, no backup.",
+    { confirmLabel: "Erase everything", cancelLabel: "Keep my data", danger: true }
+  );
+  if (!ok) return;
   Object.keys(localStorage).filter((k) => k.startsWith("pushpact-")).forEach((k) => localStorage.removeItem(k));
   location.reload();
+});
+
+// simulate date: overrides today() everywhere so the owner can walk the
+// challenge through fake days (Monday +10 escalation, weekly rest cap)
+// without waiting a real week or hand-editing localStorage.
+$("set-sim-date").addEventListener("change", (e) => {
+  if (e.target.value) localStorage.setItem("pushpact-date-override", e.target.value);
+  else localStorage.removeItem("pushpact-date-override");
+  refetch();
+});
+$("set-sim-clear").addEventListener("click", () => {
+  localStorage.removeItem("pushpact-date-override");
+  $("set-sim-date").value = "";
+  refetch();
+});
+
+// raw state dump: read-only inspection of the stored crew/profile/sets blob,
+// manual refresh only — no live diffing, no editing.
+$("state-dump-refresh").addEventListener("click", () => {
+  const raw = localStorage.getItem("pushpact-local");
+  let out;
+  try { out = JSON.stringify(JSON.parse(raw), null, 2); }
+  catch { out = raw ? `(unparseable value) ${raw}` : "(empty — no pushpact-local key stored yet)"; }
+  $("state-dump-pre").textContent = out;
 });
 
 // ---------- shell ----------
@@ -786,6 +1251,9 @@ document.querySelectorAll(".tab").forEach((t) =>
 
 function renderAll() {
   if (!state.me) return;
+  updateHeadDate();
+  // admin entry point only makes sense where the admin cards actually live
+  $("menu-wrap").classList.toggle("hidden", state.screen !== "settings");
   if (state.screen === "home") renderHome();
   if (state.screen === "today") renderToday();
   if (state.screen === "crew") renderCrew();
@@ -800,13 +1268,73 @@ function stateLabel(st) {
   return st.state;
 }
 
-// Home quick-add: instant, no ceremony — same "just log it" pattern as
-// History's "Log to this day" input, not the dial's stage-then-bank flow.
-async function homeQuickAdd(n) {
-  await state.adapter.addSet(state.me.id, today(), n);
-  hapticTick(10);
-  localStorage.setItem("pushpact-banks", String((parseInt(localStorage.getItem("pushpact-banks"), 10) || 0) + 1));
-  await refetch();
+// Quick-add: instant, no ceremony — same "just log it" pattern as History's
+// "Log to this day" input, not the dial's stage-then-bank flow. Shared by
+// Home's chips AND Today's +5/+10/+20 chips (unified contract, 2026-07-23) —
+// only the dial still stages a compose value that needs a separate Bank tap.
+// `btn` (the tapped chip, optional) is disabled for the duration of its own
+// commit — belt-and-braces alongside serializeCommit's queuing, so a
+// fat-finger double-tap on the SAME chip can't fire twice before the first
+// commit's refetch has even landed.
+async function homeQuickAdd(n, btn) {
+  if (btn?.disabled) return;
+  if (btn) btn.disabled = true;
+  try {
+    await serializeCommit(async () => {
+      const before = myTallyToday();
+      await state.adapter.addSet(state.me.id, today(), n);
+      hapticTick(10);
+      localStorage.setItem("pushpact-banks", String((parseInt(localStorage.getItem("pushpact-banks"), 10) || 0) + 1));
+      await refetch();
+      chipBankFeedback(n);
+      maybeCelebrateTargetMet(before, n);
+      maybeCelebrateStreak();
+    });
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Owner feedback 2026-07-24: a chip tap banked silently — the ledger grew
+// but the dial itself didn't visibly react, which read as "nothing
+// happened." A banked chip now floats its "+N" up off the dial face and
+// pulses the ring, so the instant-commit contract has instant feedback too.
+function chipBankFeedback(n) {
+  if (state.screen !== "today") return;
+  const dial = $("dial");
+  if (!dial) return;
+  const f = document.createElement("span");
+  f.className = "dial-float";
+  f.textContent = `+${n}`;
+  dial.appendChild(f);
+  setTimeout(() => f.remove(), 1000);
+  dial.classList.add("chip-pulse");
+  setTimeout(() => dial.classList.remove("chip-pulse"), 650);
+}
+
+// Home hero's dial glyph — a compact, non-interactive echo of the Today
+// dial's own geometry (track + progress arc + knob dot at the progress
+// point), not a re-invented widget. Teal progress/knob normally, volt once
+// the day's target is met (over-100% just clamps to a full ring, still volt).
+function homeDialSVG(tally, target) {
+  const done = tally >= target;
+  const frac = target > 0 ? Math.min(tally / target, 1) : 0;
+  const r = 40, cx = 50, cy = 50;
+  const c = 2 * Math.PI * r;
+  const dash = c.toFixed(2);
+  const offset = (c * (1 - frac)).toFixed(2);
+  const theta = frac * Math.PI * 2;
+  const kx = (cx + r * Math.sin(theta)).toFixed(2);
+  const ky = (cy - r * Math.cos(theta)).toFixed(2);
+  const col = done ? "var(--volt)" : "var(--accent)";
+  return `
+    <svg class="hc-dial" viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="hc-dial-track" cx="${cx}" cy="${cy}" r="${r}"></circle>
+      <circle class="hc-dial-halo" cx="${cx}" cy="${cy}" r="${r}" stroke-dasharray="${dash}" stroke-dashoffset="${offset}" transform="rotate(-90 ${cx} ${cy})"></circle>
+      <circle class="hc-dial-prog" cx="${cx}" cy="${cy}" r="${r}" stroke="${col}" stroke-dasharray="${dash}" stroke-dashoffset="${offset}" transform="rotate(-90 ${cx} ${cy})"></circle>
+      <circle class="hc-dial-knobhalo" cx="${kx}" cy="${ky}" r="7.5"></circle>
+      <circle class="hc-dial-knob" cx="${kx}" cy="${ky}" r="5.5" fill="${col}"></circle>
+    </svg>`;
 }
 
 function renderHome() {
@@ -825,7 +1353,6 @@ function renderHome() {
   const weekTotal = state.sets
     .filter((s) => s.profile_id === state.me.id && s.day >= ws && s.day <= today())
     .reduce((a, s) => a + s.reps, 0);
-  const pct = Math.min(100, Math.round((st.tally / st.target) * 100));
   // council: leading with "0 day streak" demotivates — show day-of-climb instead
   const dayN = Math.max(1, Math.floor((parseDay(today()) - parseDay(start)) / 86400000) + 1);
   const weekPart = weekTotal > 0 ? ` · ${weekTotal} banked this week` : "";
@@ -835,8 +1362,10 @@ function renderHome() {
     ? ` · target rises to ${targetFor(addDays(today(), 1), state.settings)} tomorrow` : "";
   $("home-mycard").innerHTML = `
     <div class="hc-top"><span class="hc-label">You, today</span><span class="state-chip bg-${st.state}">${stateLabel(st)}</span></div>
-    <div class="hc-nums"><span class="hc-tally">${st.tally}</span><span class="hc-of">/ ${st.target}</span></div>
-    <div class="hc-bar"><span style="width:${pct}%"></span></div>
+    <div class="hc-main">
+      <div class="hc-nums"><span class="hc-tally">${st.tally}</span><span class="hc-of">/ ${st.target}</span></div>
+      ${homeDialSVG(st.tally, st.target)}
+    </div>
     <div class="hc-meta">${streakLine}${weekPart}${nudge}</div>
     <div class="hc-chips">
       <button class="hc-chip" data-home-add="5">+5</button>
@@ -846,7 +1375,7 @@ function renderHome() {
     <button class="btn hc-cta" id="hc-cta">Log pushups ›</button>`;
   $("hc-cta").addEventListener("click", () => switchScreen("today"));
   $("home-mycard").querySelectorAll(".hc-chip").forEach((b) =>
-    b.addEventListener("click", () => homeQuickAdd(parseInt(b.dataset.homeAdd, 10))));
+    b.addEventListener("click", () => homeQuickAdd(parseInt(b.dataset.homeAdd, 10), b)));
 
   // Owner decision 2026-07-17: everyone always sees their OWN card first, then the
   // team's — solo use is first-class (supersedes the council's mates-first inversion).
@@ -866,7 +1395,7 @@ function renderHome() {
     const ex = state.statuses.find((x) => x.profile_id === m.id && x.kind === "excuse" &&
       (x.day === today() || x.day === addDays(today(), -1)));
     if (ex?.excuse_text) {
-      note = `<div class="postit${postitCls(ex.day)}"><small>${esc(m.name)} · ${ex.day === today() ? "today" : "yesterday"}</small>${esc(ex.excuse_text)}</div>`;
+      note = `<div class="postit${postitAgeClass(ex.day)}"><small>${esc(m.name)} · ${ex.day === today() ? "today" : "yesterday"}</small>${esc(ex.excuse_text)}</div>`;
       break;
     }
   }
@@ -877,7 +1406,7 @@ function renderHome() {
       .sort((a, b) => (a.day < b.day ? 1 : -1))[0];
     if (weekEx) {
       const who = state.profiles.find((p) => p.id === weekEx.profile_id);
-      note = `<div class="postit${postitCls(weekEx.day)}"><small>excuse of the week · ${esc(who?.name ?? "?")}</small>${esc(weekEx.excuse_text)}</div>`;
+      note = `<div class="postit${postitAgeClass(weekEx.day)}"><small>excuse of the week · ${esc(who?.name ?? "?")}</small>${esc(weekEx.excuse_text)}</div>`;
     }
   }
   $("home-postit").innerHTML = note;
@@ -913,49 +1442,6 @@ function weekStartOf(d) {
 }
 
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refetch(); });
-
-// floating-dock proximity magnify (Aceternity dock, vanilla)
-(function bindDockMagnify() {
-  const bar = document.querySelector(".tabbar");
-  const tabs = [...bar.querySelectorAll(".tab")];
-  const set = (x) => {
-    tabs.forEach((t) => {
-      const r = t.getBoundingClientRect();
-      const d = Math.abs(x - (r.left + r.width / 2));
-      const mag = Math.max(1, 1.32 - (d / 150) * 0.32);
-      t.style.setProperty("--mag", mag.toFixed(3));
-    });
-  };
-  const reset = () => { bar.classList.remove("magnifying"); tabs.forEach((t) => t.style.setProperty("--mag", 1)); };
-  bar.addEventListener("pointermove", (e) => { bar.classList.add("magnifying"); set(e.clientX); });
-  bar.addEventListener("touchmove", (e) => { bar.classList.add("magnifying"); set(e.touches[0].clientX); }, { passive: true });
-  ["pointerleave", "touchend", "touchcancel"].forEach((ev) => bar.addEventListener(ev, reset));
-})();
-
-// animated tooltip: tap an avatar for a springy stat card
-(function bindAvatarTips() {
-  let hideTimer = null;
-  document.addEventListener("click", (e) => {
-    const av = e.target.closest(".crew-card .avatar, .home-crew .avatar, .ob-existing .avatar");
-    const tip = $("av-tip");
-    if (!av) { tip.classList.add("hidden"); return; }
-    const card = av.closest("[data-pid]") || av.closest(".crew-card, .row");
-    const pid = card?.dataset?.pid;
-    const p = state.profiles.find((x) => x.id === pid);
-    if (!p) return;
-    const st = dayState({ sets: state.sets, statuses: state.statuses, profileId: p.id, day: today(), today: today(), settings: state.settings });
-    const stk = streak({ sets: state.sets, statuses: state.statuses, profileId: p.id, today: today(), settings: state.settings });
-    tip.innerHTML = `<b>${esc(p.name)}</b>${st.tally} / ${st.target} today · <span class="tip-volt">${stk} day streak</span><br>${allTimeTotal(state.sets, p.id).toLocaleString()} all-time${personalBest(state.sets, p.id) > 0 ? ` · PB ${personalBest(state.sets, p.id)}` : ""}`;
-    const r = av.getBoundingClientRect();
-    tip.classList.remove("hidden");
-    const w = tip.offsetWidth;
-    tip.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
-    tip.style.top = `${r.top - tip.offsetHeight - 10}px`;
-    hapticTick(4);
-    clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => tip.classList.add("hidden"), 2600);
-  });
-})();
 
 // swipe between screens (pattern ported from the fitness app's bindTabSwipe:
 // 55px min horizontal, 1.5x horizontal dominance, <700ms, ignores the dial and inputs)
