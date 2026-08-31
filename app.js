@@ -1001,7 +1001,12 @@ function renderCrew() {
   plate.textContent = crewName;
   plate.classList.toggle("hidden", !crewName);
 
-  const cards = state.profiles.map((p) => {
+  // Crew/Home merge: the corkboard shows everyone EXCEPT you. #home-mycard
+  // sits directly above it and already shows your own day in more detail, so
+  // leaving you in the map put the same person on one screen twice. Same
+  // `mates` filter renderLedger() already uses for the mate post-it zone.
+  const mates = state.profiles.filter((p) => p.id !== state.me.id);
+  const cards = mates.map((p) => {
     const st = dayState({ sets: state.sets, statuses: state.statuses, profileId: p.id, day: today(), today: today(), settings: state.settings });
     const days = [...Array(7)].map((_, i) => addDays(today(), i - 6));
     const strip = days.map((d) => {
@@ -1030,7 +1035,13 @@ function renderCrew() {
         ${ex?.excuse_text ? `<div class="cc-postit"><div class="postit${postitAgeClass(ex.day)}"><small>${ex.day === today() ? "today" : "yesterday"}</small>${esc(ex.excuse_text)}</div></div>` : ""}
       </div>`;
   }).join("");
-  $("crew-cards").innerHTML = cards;
+  // Filtering yourself out means solo mode has nobody left to draw, and a
+  // corkboard rendering empty under its own title reads as broken rather than
+  // as solo. Adapted from the retired Home-screen line — "from the Crew tab"
+  // is dropped because this IS the crew tab now, and the invite card it points
+  // at is the next block down.
+  $("crew-cards").innerHTML = cards ||
+    '<div class="l-empty">Flying solo for now — that counts too. Invite a friend below.</div>';
 }
 
 $("share-btn").addEventListener("click", async () => {

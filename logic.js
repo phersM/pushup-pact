@@ -137,3 +137,111 @@ export function streak({ sets, statuses, profileId, today, settings = DEFAULT_SE
   }
   return count;
 }
+
+// ---- celebrations ----
+// Decision only, no DOM/side effects — app.js turns the result into a queue
+// of things to show. Kept pure so the "both at once" collapse (see below) is
+// a decision the tests can pin, not an accident of firing order.
+
+export function decideCelebrations({ beforeTally, repsAdded, target, streakDays }) {
+  // Missing/non-numeric inputs read as 0 rather than throwing or NaN-poisoning
+  // the comparisons below.
+  const before = Number(beforeTally) || 0;
+  const added = Number(repsAdded) || 0;
+  const days = Number(streakDays) || 0;
+  // A target that isn't a positive finite number means signed-out or
+  // pre-challenge state — never celebrate against a target that doesn't
+  // really exist.
+  if (!(Number.isFinite(target) && target > 0)) return [];
+  const crossed = before < target && before + added >= target;
+  // 0 % 7 === 0, so without the `days > 0` guard a member with NO streak at
+  // all (streakDays 0) would fire a milestone celebration on day zero.
+  const milestone = days > 0 && days % 7 === 0;
+  // Both landing on the same commit collapses to ONE entry, not two: the
+  // streak supersedes, and the affirmation bag must not be drawn from on a
+  // day its line is never shown — see nextFromBag's admin-add note below for
+  // why a burned line matters.
+  if (crossed && milestone) return [{ kind: "streak", cut: "full", days, alsoTarget: true }];
+  if (milestone) return [{ kind: "streak", cut: "full", days }];
+  if (crossed) return [{ kind: "target", cut: "short" }];
+  return [];
+}
+
+// ---- affirmation bag ----
+// Shuffled-bag picker: every line in the bank is drawn once before any line
+// repeats. Replaces a weaker "random, but not equal to last" picker that
+// repeated noticeably when fired daily across 30 lines.
+//
+// Lines the admin ADDS only enter the bag at the next refill — the app
+// resets the stored bag explicitly whenever the bank is saved, so this
+// function does not need to detect additions itself.
+export function nextFromBag(bank, bagState, rng = Math.random) {
+  if (!Array.isArray(bank) || bank.length === 0) {
+    return { line: null, state: { remaining: [], last: bagState?.last ?? null } };
+  }
+  const prevLast = bagState && typeof bagState === "object" ? (bagState.last ?? null) : null;
+  // A line the admin has since deleted must never be drawn, even if it's
+  // still sitting in a bag that was filled before the edit.
+  let remaining = (Array.isArray(bagState?.remaining) ? bagState.remaining : []).filter((line) =>
+    bank.includes(line)
+  );
+
+  if (remaining.length === 0) {
+    remaining = shuffleBag(bank, rng);
+    // A fresh bag boundary can otherwise deal the same line twice in a row
+    // (last line of the old bag == first line of the new one) — swap it away
+    // so a shuffle boundary is never visible as a repeat.
+    if (remaining[0] === prevLast && remaining.length > 1) {
+      const swapIdx = 1 + Math.floor(rng() * (remaining.length - 1));
+      [remaining[0], remaining[swapIdx]] = [remaining[swapIdx], remaining[0]];
+    }
+  }
+
+  remaining = remaining.slice();
+  const line = remaining.shift();
+  return { line, state: { remaining, last: line } };
+}
+
+// Fisher–Yates, driven by the injected rng so tests can pin the sequence.
+function shuffleBag(bank, rng) {
+  const a = bank.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ---- streak lines ----
+// Five fixed, admin-editable milestone slots. The structure is fixed
+// (STREAK_SLOTS, for the admin editor to iterate); only the wording is
+// editable per crew.
+
+export const STREAK_SLOTS = ["d7", "d14", "d21", "d28", "beyond"];
+
+export const STREAK_DEFAULTS = {
+  d7: "Seven days. Knot tied.",
+  d14: "Two weeks straight. The rope holds.",
+  d21: "Three weeks. That's a habit now.",
+  d28: "Four weeks straight. Cast in stone.",
+  beyond: "{n} days straight. Still climbing.",
+};
+
+// Which of the five slots a given day-count fires; every milestone past 28
+// shares "beyond" rather than growing the slot list forever.
+export function streakSlotFor(days) {
+  if (days === 7) return "d7";
+  if (days === 14) return "d14";
+  if (days === 21) return "d21";
+  if (days === 28) return "d28";
+  return "beyond";
+}
+
+export function streakLine(days, lines) {
+  const slot = streakSlotFor(days);
+  const override = lines && typeof lines === "object" ? lines[slot] : undefined;
+  // A blank/whitespace-only override must fall back rather than render an
+  // empty celebration headline.
+  const text = typeof override === "string" && override.trim() !== "" ? override : STREAK_DEFAULTS[slot];
+  return text.replaceAll("{n}", String(days));
+}

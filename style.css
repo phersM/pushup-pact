@@ -207,8 +207,33 @@ input, textarea{-webkit-user-select:text; user-select:text}
 .home-hero{padding:20px 22px 4px}
 .hh-greet{font-family:Archivo,sans-serif;font-weight:800;font-size:30px;letter-spacing:-.02em;line-height:1.05}
 .hh-sub{font-size:13px;font-weight:600;color:var(--muted);margin-top:6px}
-.home-card{margin:16px 22px 0;padding:20px;border-radius:var(--r-lg);background:var(--grad);color:var(--on-accent);
+/* Hero card goes translucent so the .app-peak watermark tints through it
+   instead of the card sitting flatly on top, matching the frosted treatment
+   the onboarding surfaces already use. It does NOT take the house
+   rgba(var(--card-rgb),.28) recipe: this card's text is --on-accent
+   (near-white #FFFCF5), and --card-rgb is 255,252,245 in light mode, so the
+   house recipe would put white text on a near-white card. It keeps its own
+   teal->pine gradient and gains alpha on both stops instead, so the white
+   text keeps a dark ground in both themes.
+
+   ALPHA IS PER-THEME, and that is not a style choice — it is a contrast floor.
+   Light --paper (#FAF3E8) is bright enough that transparency eats the ground
+   out from under the near-white text: measured against the paper+watermark
+   ground, the gradient's TOP stop gives 3.37:1 at .72, which fails WCAG AA
+   (4.5:1) for .hc-label / .hc-of / .hc-meta -- only .hc-tally, as large text,
+   would have cleared. .92 is the first passing value (4.54:1). Dark mode has
+   no such problem (6.28:1 at .72) and keeps the deeper transparency, since
+   that is where the watermark actually reads through. Same one-theme-only
+   correction pattern as .app-peak's dark override further down this file.
+   Tune .72 (dark) freely; do not raise the light value above nor drop it
+   below .92 without re-checking the ratio. */
+.home-card{margin:16px 22px 0;padding:20px;border-radius:var(--r-lg);
+  background:linear-gradient(160deg,rgba(15,122,109,.92),rgba(11,59,52,.92));
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:var(--on-accent);
   box-shadow:0 14px 34px rgba(15,122,109,.3);animation:rowIn .45s var(--ease-out)}
+@media (prefers-color-scheme: dark){
+  .home-card{background:linear-gradient(160deg,rgba(15,122,109,.72),rgba(11,59,52,.72))}
+}
 .hc-top{display:flex;align-items:center;justify-content:space-between}
 .hc-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
 .hc-main{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:8px}
@@ -448,6 +473,15 @@ input, textarea{-webkit-user-select:text; user-select:text}
 
 .today-actions{display:flex;gap:10px;padding:16px 22px 12px;margin-top:auto}
 .today-actions .btn{flex:1}
+
+/* Section heading for the crew corkboard, now that Home and Crew are one
+   screen and the strip above it carries its own "This week" title. Needs a
+   padded wrapper of its own because .l-title carries no gutter — everywhere
+   else it already sits inside a padded block (.ledger, .week-strip,
+   .crew-invite), and as a bare child of the flex-column .screen it would
+   render flush to the viewport edge, 22px out of line with the rest of the
+   screen. Same 20px/22px step .home-crew used when this list lived on Home. */
+.crew-head{padding:20px 22px 0}
 
 /* crew — the corkboard/fridge-door (Wave 4 rebuild): avatars are the
    dominant visual per member card, a coloured ring on the avatar reads
@@ -977,7 +1011,14 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    heading-and-subject relationship, not a new pattern. Not a control: no
    border, no fill, nothing that reads as tappable, because renaming is an
    admin job done in Settings. */
-.crew-name-plate{margin:-6px 0 18px;font-family:"JetBrains Mono",ui-monospace,monospace;
+/* Crew/Home merge: the heading above the plate is now .crew-head's
+   "Keeping tabs", not the deleted <h2 class="screen-title">The Crew</h2>. The
+   old -6px top margin existed only to cancel .screen-title's 6px bottom
+   padding; with that heading gone it was pulling the plate up over the week
+   strip. Top margin is 0 now — the 10px gap the plate sits at is .l-title's
+   own margin-bottom, i.e. the same heading-to-content step every other
+   labelled block on the screen uses, and nothing here can overlap upward. */
+.crew-name-plate{margin:0 22px 18px;font-family:"JetBrains Mono",ui-monospace,monospace;
   font-weight:500;font-size:13px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--accent);overflow-wrap:anywhere}
 
