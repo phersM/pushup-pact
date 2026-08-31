@@ -17,14 +17,14 @@ const state = {
   settings: { ...DEFAULT_SETTINGS },
   compose: 0, rotation: 0,
   histMonth: null, histPerson: null, histSelected: null,
-  excuseDay: null, screen: "home",
+  excuseDay: null, screen: "crew",
 };
 // loadCrew() can re-run (onboarding -> new crew, or a future re-join flow);
 // without tearing down the previous subscription first, each re-entry would
 // leave its poller/channel running and stack a second one on top, doubling
 // refetch() calls forever.
 let unsubscribeCrew = null;
-const SCREEN_ORDER = ["home", "today", "crew", "history", "settings"];
+const SCREEN_ORDER = ["crew", "today", "history", "settings"];
 
 const today = () => {
   const override = localStorage.getItem("pushpact-date-override");
@@ -1552,9 +1552,8 @@ function renderAll() {
   $("head-avatar").innerHTML = avatarChip(state.me.avatar);
   // admin entry point only makes sense where the admin cards actually live
   $("menu-wrap").classList.toggle("hidden", state.screen !== "settings");
-  if (state.screen === "home") renderHome();
   if (state.screen === "today") renderToday();
-  if (state.screen === "crew") renderCrew();
+  if (state.screen === "crew") { renderHome(); renderCrew(); }
   if (state.screen === "history") renderHistory();
   if (state.screen === "settings") renderSettings();
 }
@@ -1642,49 +1641,9 @@ function renderHome() {
            that DO log. Read as a broken control, not decoration. -->
     </div>
     <div class="hc-meta">${streakLine}${weekPart}${nudge}</div>
-    <div class="hc-chips">
-      <button class="hc-chip" data-home-add="5">+5</button>
-      <button class="hc-chip" data-home-add="10">+10</button>
-      <button class="hc-chip" data-home-add="20">+20</button>
-    </div>
     <button class="btn hc-cta" id="hc-cta">Log pushups ›</button>`;
   $("hc-cta").addEventListener("click", () => switchScreen("today"));
-  $("home-mycard").querySelectorAll(".hc-chip").forEach((b) =>
-    b.addEventListener("click", () => homeQuickAdd(parseInt(b.dataset.homeAdd, 10), b)));
 
-  // Owner decision 2026-07-17: everyone always sees their OWN card first, then the
-  // team's — solo use is first-class (supersedes the council's mates-first inversion).
-  const others = state.profiles.filter((p) => p.id !== state.me.id);
-  $("home-crew").innerHTML = `<div class="l-title">The crew today</div>` + (others.length
-    ? others.map((p, i) => {
-        const s = dayState({ sets: state.sets, statuses: state.statuses, profileId: p.id, day: today(), today: today(), settings: state.settings });
-        return `<div class="row" data-pid="${p.id}" style="animation-delay:${0.06 * (i + 1)}s">
-          ${avatarChip(p.avatar)}<span class="nm">${esc(p.name)}</span>
-          <span class="nums">${s.tally} <small>/ ${s.target}</small></span><span class="sdot bg-${s.state}"></span>
-        </div>`;
-      }).join("")
-    : `<div class="row"><span class="nm" style="color:var(--muted);font-weight:600">Flying solo for now — that counts too. Invite a friend from the Crew tab whenever.</span></div>`);
-
-  let note = "";
-  for (const m of others) {
-    const ex = state.statuses.find((x) => x.profile_id === m.id && x.kind === "excuse" &&
-      (x.day === today() || x.day === addDays(today(), -1)));
-    if (ex?.excuse_text) {
-      note = `<div class="postit${postitAgeClass(ex.day)}"><small>${esc(m.name)} · ${ex.day === today() ? "today" : "yesterday"}</small>${esc(ex.excuse_text)}</div>`;
-      break;
-    }
-  }
-  if (!note) {
-    // council: surface the excuse of the week when nothing fresher is up
-    const weekEx = state.statuses
-      .filter((x) => x.kind === "excuse" && x.excuse_text && x.day >= ws && x.day <= today())
-      .sort((a, b) => (a.day < b.day ? 1 : -1))[0];
-    if (weekEx) {
-      const who = state.profiles.find((p) => p.id === weekEx.profile_id);
-      note = `<div class="postit${postitAgeClass(weekEx.day)}"><small>excuse of the week · ${esc(who?.name ?? "?")}</small>${esc(weekEx.excuse_text)}</div>`;
-    }
-  }
-  $("home-postit").innerHTML = note;
   renderWeekStrip();
 }
 

@@ -300,24 +300,6 @@
 
   <div id="local-banner" class="local-banner hidden"><span>Solo for now — pushups stay on this phone until your crew connects</span><button id="lb-close" aria-label="Dismiss">✕</button></div>
 
-  <!-- HOME -->
-  <main id="screen-home" class="screen">
-    <div class="home-hero">
-      <div class="hh-greet" id="hh-greet"></div>
-      <div class="hh-sub" id="hh-sub"></div>
-    </div>
-    <div class="home-card" id="home-mycard"></div>
-    <div class="week-strip" id="week-strip">
-      <div class="ws-head"><span class="l-title rope-title">This week</span><span id="ws-summary" class="ws-summary"></span></div>
-      <div class="ws-track">
-        <span class="ws-strand"></span>
-        <div class="ws-days" id="ws-days"></div>
-      </div>
-    </div>
-    <div class="home-crew" id="home-crew"></div>
-    <div id="home-postit" class="home-postit"></div>
-  </main>
-
   <!-- TODAY / LOG -->
   <main id="screen-today" class="screen hidden">
     <div class="rope-row">
@@ -375,8 +357,19 @@
   </main>
 
   <!-- CREW -->
-  <main id="screen-crew" class="screen hidden">
-    <h2 class="screen-title">The Crew</h2>
+  <main id="screen-crew" class="screen">
+    <div class="home-hero">
+      <div class="hh-greet" id="hh-greet"></div>
+      <div class="hh-sub" id="hh-sub"></div>
+    </div>
+    <div class="home-card" id="home-mycard"></div>
+    <div class="week-strip" id="week-strip">
+      <div class="ws-head"><span class="l-title rope-title">This week</span><span id="ws-summary" class="ws-summary"></span></div>
+      <div class="ws-track">
+        <span class="ws-strand"></span>
+        <div class="ws-days" id="ws-days"></div>
+      </div>
+    </div>
     <!-- The crew's name, read-only for everyone here by owner ruling: renaming
          the crew is an admin job, not something any member can do from the
          screen they read it on. The editable field lives in Settings behind
@@ -519,14 +512,11 @@
   </main>
 
   <nav class="tabbar">
-    <button class="tab on" data-screen="home" aria-label="Home">
-      <svg viewBox="0 0 24 24"><path d="M4 11 L12 4 L20 11 V20 H14.5 V15 H9.5 V20 H4 Z"/></svg><span>Home</span>
+    <button class="tab on" data-screen="crew" aria-label="Crew">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="8.6" r="3.1"/><path d="M3.6 19c.6-3 2.7-4.6 5.4-4.6s4.8 1.6 5.4 4.6"/><circle cx="16.8" cy="9.8" r="2.5"/><path d="M15.9 14.6c2.5.3 4.1 1.7 4.6 4.4"/></svg><span>Crew</span>
     </button>
     <button class="tab" data-screen="today" aria-label="Log pushups">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="5.6" r="1.9" fill="currentColor" stroke="none"/></svg><span>Log</span>
-    </button>
-    <button class="tab" data-screen="crew" aria-label="Crew">
-      <svg viewBox="0 0 24 24"><circle cx="9" cy="8.6" r="3.1"/><path d="M3.6 19c.6-3 2.7-4.6 5.4-4.6s4.8 1.6 5.4 4.6"/><circle cx="16.8" cy="9.8" r="2.5"/><path d="M15.9 14.6c2.5.3 4.1 1.7 4.6 4.4"/></svg><span>Crew</span>
     </button>
     <button class="tab" data-screen="history" aria-label="History">
       <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="2.5"/><path d="M4 10.5h16M8.5 4v4M15.5 4v4"/></svg><span>History</span>
