@@ -10,11 +10,11 @@
 <meta name="theme-color" content="#FAF3E8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#081F1B" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Caveat:wght@600;700&family=Archivo:ital,wght@0,500;0,700;0,800;0,900;1,900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Caveat:wght@600;700&family=Archivo:ital,wght@0,500;0,700;0,800;0,900;1,900&family=Bebas+Neue&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,6 +24,11 @@
 <svg style="position:absolute;width:0;height:0" aria-hidden="true">
   <defs>
     <filter id="rrGlowT" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.2"/></filter>
+    <!-- hand-drawn line wobble, lifted verbatim from the Ascent splash -->
+    <filter id="roughLine" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03 0.018" numOctaves="2" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
     <filter id="rrLantern" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur in="SourceGraphic" stdDeviation="2"/></filter>
     <symbol id="rr-logomark" viewBox="0 0 96 96">
       <circle cx="48" cy="48" r="44" fill="#0F7A6D"/>
@@ -106,40 +111,127 @@
        badge from stacking directly above the wordmark per owner feedback: the
        two animated marks were competing head-to-head; this keeps the motion as
        ambient texture instead. -->
-  <svg class="ob-watermark" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#rr-underlay"></use></svg>
+  <!-- THE RANGE'S PEAK. Replaces the old #rr-underlay watermark (teal disc +
+       pushup figure + volt orbit dot). Derived from the Ascent master painting
+       by design/peak/build-peak-rr.py, which writes ONLY ink density — no hue.
+       The colour comes from --peak-ink below, so the wash is exactly the brand
+       teal and dark mode inverts to paper-on-pine as a one-line swap rather
+       than a second asset. #rr-underlay itself is now unused; the symbol is
+       left defined rather than deleted unasked. -->
+  <div class="ob-art" aria-hidden="true">
+    <div class="ob-peak">
+      <div class="ob-peak-ink"></div>
+      <!-- The route, traced out of the asset itself: for each column the
+           topmost pixel above alpha 110, median-smoothed, then a running
+           minimum so the line only ever climbs. Runs from 17 percent across to
+           the summit at 59.6 percent. The viewBox matches the asset exactly,
+           so the drawn route and the mask cannot drift apart. -->
+      <svg class="ob-trail" viewBox="0 0 900 805" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <!-- A dashed track cannot draw itself on with stroke-dashoffset - that
+               dash is already spoken for by the dashes. So a thick solid stroke
+               wipes along the same path inside a mask, uncovering the dashed
+               track underneath as the marker climbs. -->
+          <mask id="obRouteMask">
+            <path class="ob-route-wipe" pathLength="100" d="M198,534 C229,518 345,464 387,440 C429,416 441,399 450,388 C459,377 439,378 441,372 C443,365 459,356 460,350 C461,344 441,344 446,338 C451,332 488,319 490,314 C491,310 463,314 457,310 C451,306 445,297 452,292 C460,286 488,287 501,278 C514,268 533,246 528,235 C523,225 467,222 471,215 C474,208 537,198 549,192 C562,186 538,189 544,181 C551,173 593,155 590,144 C586,134 536,124 525,117 C514,111 514,112 523,103 C531,94 570,77 576,63 C582,49 565,29 558,20 C552,11 540,9 536,7"
+                  fill="none" stroke="#fff" stroke-width="46" stroke-linecap="round"/>
+          </mask>
+        </defs>
+        <g mask="url(#obRouteMask)">
+          <path class="ob-route" d="M198,534 C229,518 345,464 387,440 C429,416 441,399 450,388 C459,377 439,378 441,372 C443,365 459,356 460,350 C461,344 441,344 446,338 C451,332 488,319 490,314 C491,310 463,314 457,310 C451,306 445,297 452,292 C460,286 488,287 501,278 C514,268 533,246 528,235 C523,225 467,222 471,215 C474,208 537,198 549,192 C562,186 538,189 544,181 C551,173 593,155 590,144 C586,134 536,124 525,117 C514,111 514,112 523,103 C531,94 570,77 576,63 C582,49 565,29 558,20 C552,11 540,9 536,7"/>
+        </g>
+        <!-- summit lantern: lit the moment the marker tops out. Two circles
+             flickering on DIFFERENT periods (3.1s and 2.3s) so they drift in
+             and out of phase - a flame read comes from the glow and the core
+             disagreeing, not from one element pulsing.
+             Burns in --peak-ink, the mountain's own ink, NOT volt: DESIGN.md
+             rations volt to goal-smashed moments (dial tip, met-day, streak
+             knot) and a launch screen is not one of them. Ink also inverts
+             with the theme for free, so the lantern is paper-on-pine in dark
+             and teal-on-paper in light, always lit against its own ground --
+             a fixed hue would have gone flat in one theme or the other. -->
+        <g class="ob-summit-flame" transform="translate(536,7)">
+          <circle class="ob-flame-glow" r="30"/>
+          <circle class="ob-flame-core" r="7"/>
+        </g>
+        
+      </svg>
+    </div>
+  </div>
+
+  <!-- Wild Phersday (studio) > Ascent (the range) > Rope & Rung (this product).
+       The range leads, the product names itself under the rule, the studio
+       signs the foot of the page. Scoped to the launch + crew-code screen
+       only — every screen behind this door is still Rope & Rung. -->
+  <div class="ob-lockup">
+    <h1 class="ob-ascent">Ascent</h1>
+    <div class="ob-rule" aria-hidden="true"></div>
+    <p class="ob-product">Rope &amp; Rung</p>
+  </div>
+
   <div class="ob-inner">
-    <!-- transform on <use> (not the shared #rr-wordmark symbol, which the
-         header/celebration overlay also reference at their own scale) —
-         <use> of a <symbol> always re-fits the symbol's OWN internal viewBox
-         "20 24 674 168" into whatever box it's given, so simply cropping this
-         wrapping <svg>'s own viewBox did nothing but distort the mapping.
-         Owner: "the knot is the centre" — not the overall ROPE+RUNG text
-         bbox (RUNG's extra reach past the knot made a plain bbox-centre sit
-         off from where the knot actually is). Knot's own bbox measured
-         directly (isolated test SVG, same path data + group transform):
-         centre (329.4, 102.06) in symbol-local units. This translate+scale
-         pins THAT point to the viewBox's true centre (357,108); scale capped
-         at 1.1 (not the earlier 1.35) because centring on the knot — which
-         sits right-of-centre in the full lockup — leaves much less room on
-         the left before "ROPE" would clip the viewBox edge; 1.1 keeps an
-         ~11-unit margin on the tightest (left) side, confirmed by the same
-         four-edge bounds check used for the previous attempt. -->
-    <svg class="wordmark ob-wordmark" viewBox="20 24 674 168" width="320" height="80" role="img" aria-label="Rope &amp; Rung"><use href="#rr-wordmark" transform="translate(-5.34,-4.27) scale(1.1)"></use></svg>
     <div id="ob-step-code">
-      <p class="ob-tag">One escalating target.<br>No hiding.</p>
-      <label class="lbl" for="crew-code">Crew code</label>
-      <div class="ob-code-row">
-        <input id="crew-code" type="text" autocomplete="off" autocapitalize="characters" maxlength="6" placeholder="e.g. ROPE26">
-        <button id="ob-code-btn" class="btn-disc" aria-label="Enter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <div id="ob-code-entry">
+        <label class="lbl" for="crew-code">Crew code</label>
+        <div class="ob-code-row">
+          <!-- States the FORMAT, never an example code. An example rendered in
+               this input's own face reads as a value already typed in (owner,
+               on sight: "it looks like its already input") — and the earlier
+               "e.g. ROPE26" had the worse failure of teaching people they may
+               invent a code, when an invented code is a guessable one. The
+               count is the validator's own CODE_LENGTH (data.js), which is an
+               exact length, not a minimum. See the ::placeholder rule in
+               style.css, which stops it inheriting the bold value face. -->
+          <input id="crew-code" type="text" autocomplete="off" autocapitalize="characters" maxlength="8" placeholder="8 characters">
+          <button id="ob-code-btn" class="btn-disc" aria-label="Enter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+        <!-- The only way to start a crew used to be to type a code that was
+             well-formed but belonged to nobody, which surfaced the "New crew"
+             panel. That is unreachable in practice: someone with no code has
+             nothing to type, and a guess almost always breaks the alphabet
+             rules and gets rejected before the panel can ever appear (owner
+             hit exactly this with "monday26"). So the launch screen now
+             carries the second path openly. Quiet, not a second CTA — joining
+             an existing crew stays the main road. -->
+        <button id="ob-no-code" class="ob-alt">No code? Start a crew</button>
       </div>
       <p id="ob-code-err" class="err hidden"></p>
+      <!-- Shown INSTEAD of the crew-code entry whenever the shared database is
+           unreachable (no config.js, or the Supabase import/init failed). A code
+           field that can only ever miss is worse than no field at all: every
+           entered code fell through to the "not found" panel, whose only forward
+           path is "New crew" — so an invited friend was silently forked into
+           their own empty crew believing they had joined. See app.js applyMode(). -->
+      <div id="ob-solo" class="ob-notfound hidden">
+        <p class="ob-notfound-msg">Crews are offline right now.</p>
+        <p class="ob-notfound-sub">Crew codes can't be checked, so joining a friend isn't possible yet. You can start on your own — your pushups save on this phone, and they'll come with you when crews come back.</p>
+        <button id="ob-solo-btn" class="btn btn-primary">Start on my own</button>
+      </div>
       <div id="ob-code-notfound" class="ob-notfound hidden">
         <p class="ob-notfound-msg">No crew found with code <b id="ob-notfound-code"></b>.</p>
-        <p class="ob-notfound-sub">Typo, or a brand new crew? Both are one tap away.</p>
+        <p class="ob-notfound-sub">Typo, or starting your own? Both are one tap away — a new crew gets its own code to share.</p>
         <div class="ob-notfound-btns">
           <div class="ob-nf-opt"><button id="ob-notfound-fix" class="btn-disc" aria-label="Re-enter code"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-.9 4.5M20 5v6h-6"/></svg></button><span class="ob-nf-cap">Re-enter code</span></div>
           <div class="ob-nf-opt"><button id="ob-notfound-create" class="btn-disc" aria-label="Start a new crew"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="9" r="3.2"/><path d="M4.5 19c.5-3 2.6-4.6 5.5-4.6 1 0 1.9.2 2.7.6"/><path d="M18 13v6M15 16h6"/></svg></button><span class="ob-nf-cap">New crew</span></div>
         </div>
+      </div>
+    </div>
+    <!-- Shown once, immediately after a crew is created, before naming
+         yourself. Two jobs, both previously unserved: hand over the generated
+         code at the one moment you need it (it existed only in Settings and
+         the share sheet, so a new crew's founder was never actually told it),
+         and let the crew be named while you're thinking about it rather than
+         leaving every crew called "The Climb" (the schema default) until
+         someone finds Settings. Naming reuses save_settings' existing p_name
+         path — no new procedure. The code itself stays server-generated; it
+         is the only credential this app has, so it is shown, never chosen. -->
+    <div id="ob-step-newcrew" class="hidden">
+      <p class="ob-nc-lead">Your crew is open. This is its code —<br>friends need it to join you.</p>
+      <p id="ob-newcrew-code" class="ob-nc-code"></p>
+      <label class="lbl" for="ob-crewname">Name your crew</label>
+      <div class="ob-code-row">
+        <input id="ob-crewname" type="text" autocomplete="off" maxlength="24" placeholder="The Climb">
+        <button id="ob-newcrew-go" class="btn-disc" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       </div>
     </div>
     <div id="ob-step-profile" class="hidden">
@@ -156,6 +248,7 @@
       <p class="ob-fine-tab">The daily target starts easy and climbs a little every Monday (the crew can tune it in Settings). Miss a day? Your excuse goes up where your friends can see it.</p>
     </div>
   </div>
+  <div class="ob-studio" aria-hidden="true">Wild Phersday</div>
 </div>
 
 <!-- INSTALL HINT (shown in-browser only; gone once installed to home screen) -->
@@ -168,10 +261,26 @@
 </div>
 
 <div id="app" class="hidden">
+  <!-- the launch screen's peak, carried through every screen. Same asset, same
+       mask, so it costs one cached image and one static composited layer - no
+       animation, nothing that repaints on scroll. -->
+  <div class="app-peak" aria-hidden="true"></div>
+  <!-- sibling of .app-peak, NOT a child/pseudo-element of it: a CSS mask
+       flattens an element and everything inside it into one composited
+       group, so the mask's alpha would clip a glow hung on .app-peak into a
+       crescent. Keeping the lantern out here, unmasked, is what lets it
+       render whole. Geometry is shared with .app-peak via one CSS rule so
+       the two boxes can't drift apart - see style.css. -->
+  <div class="app-lantern" aria-hidden="true"><svg class="al-route" viewBox="0 0 900 805" preserveAspectRatio="xMidYMid meet"><defs><filter id="alBloomBlur" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="26"/></filter><mask id="alBloomReveal"><path class="al-bloom-rev" pathLength="100" stroke="#fff" fill="none" stroke-width="210" stroke-linecap="round" stroke-linejoin="round" filter="url(#alBloomBlur)" d="M198,534 C229,518 345,464 387,440 C429,416 441,399 450,388 C459,377 439,378 441,372 C443,365 459,356 460,350 C461,344 441,344 446,338 C451,332 488,319 490,314 C491,310 463,314 457,310 C451,306 445,297 452,292 C460,286 488,287 501,278 C514,268 533,246 528,235 C523,225 467,222 471,215 C474,208 537,198 549,192 C562,186 538,189 544,181 C551,173 593,155 590,144 C586,134 536,124 525,117 C514,111 514,112 523,103 C531,94 570,77 576,63 C582,49 565,29 558,20 C552,11 540,9 536,7"/></mask><mask id="alPeakShape"><image href="assets/peak.png" x="0" y="0" width="900" height="805"/></mask><mask id="alRouteReveal"><path class="al-reveal" pathLength="100" d="M198,534 C229,518 345,464 387,440 C429,416 441,399 450,388 C459,377 439,378 441,372 C443,365 459,356 460,350 C461,344 441,344 446,338 C451,332 488,319 490,314 C491,310 463,314 457,310 C451,306 445,297 452,292 C460,286 488,287 501,278 C514,268 533,246 528,235 C523,225 467,222 471,215 C474,208 537,198 549,192 C562,186 538,189 544,181 C551,173 593,155 590,144 C586,134 536,124 525,117 C514,111 514,112 523,103 C531,94 570,77 576,63 C582,49 565,29 558,20 C552,11 540,9 536,7"/></mask></defs><g mask="url(#alPeakShape)"><g mask="url(#alBloomReveal)"><path class="al-bloom" pathLength="100" d="M198,534 C229,518 345,464 387,440 C429,416 441,399 450,388 C459,377 439,378 441,372 C443,365 459,356 460,350 C461,344 441,344 446,338 C451,332 488,319 490,314 C491,310 463,314 457,310 C451,306 445,297 452,292 C460,286 488,287 501,278 C514,268 533,246 528,235 C523,225 467,222 471,215 C474,208 537,198 549,192 C562,186 538,189 544,181 C551,173 593,155 590,144 C586,134 536,124 525,117 C514,111 514,112 523,103 C531,94 570,77 576,63 C582,49 565,29 558,20 C552,11 540,9 536,7"/></g></g><path class="al-track" d="M198,534 C229,518 345,464 387,440 C429,416 441,399 450,388 C459,377 439,378 441,372 C443,365 459,356 460,350 C461,344 441,344 446,338 C451,332 488,319 490,314 C491,310 463,314 457,310 C451,306 445,297 452,292 C460,286 488,287 501,278 C514,268 533,246 528,235 C523,225 467,222 471,215 C474,208 537,198 549,192 C562,186 538,189 544,181 C551,173 593,155 590,144 C586,134 536,124 525,117 C514,111 514,112 523,103 C531,94 570,77 576,63 C582,49 565,29 558,20 C552,11 540,9 536,7"/><g class="al-walker"><circle class="alw-dot" r="6.5"/></g></svg><i class="al-glow"></i><i class="al-core"></i></div>
   <header class="app-head">
+    <!-- The badge is now WHOSE app this is, not what the app is: the signed-in
+         member's own animated avatar. The wordmark drops the knot lockup for the
+         launch screen's plain mono setting, so the door and the room agree.
+         #rr-logomark and #rr-wordmark are both still defined (the celebration
+         overlay uses the wordmark) but the header no longer references either. -->
     <div class="brand">
-      <svg class="logomark" viewBox="0 0 96 96" aria-hidden="true"><use href="#rr-logomark"></use></svg>
-      <svg class="wordmark sm" viewBox="20 24 674 168" width="80" height="20" role="img" aria-label="Rope &amp; Rung"><use href="#rr-wordmark"></use></svg>
+      <span id="head-avatar" class="head-avatar" aria-hidden="true"></span>
+      <span class="head-wordmark">Rope &amp; Rung</span>
     </div>
     <div class="head-actions">
       <div class="head-right">
@@ -244,7 +353,13 @@
       <button class="qchip" data-add="20" aria-label="Add 20 pushups">+20</button>
     </div>
     <div class="bank-zone">
-      <button id="bank-btn" class="btn-disc lg" disabled aria-label="Crank the dial to bank"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10M7 10l5 5 5-5"/><path d="M5 18h14"/></svg></button>
+      <!-- The disc's meaning lived only in its aria-label, so a sighted
+           first-timer saw a down-arrow and no word. Same disc + caption pattern
+           the crew-code "not found" panel already uses (.ob-nf-opt/.ob-nf-cap);
+           the caption is written from the SAME string as the aria-label in
+           renderDial(), so the visible and announced names can never diverge. -->
+      <button id="bank-btn" class="btn-disc lg" disabled aria-labelledby="bank-cap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10M7 10l5 5 5-5"/><path d="M5 18h14"/></svg></button>
+      <span id="bank-cap" class="bank-cap">Crank the dial to bank</span>
     </div>
 
     <div class="ledger">
@@ -262,10 +377,18 @@
   <!-- CREW -->
   <main id="screen-crew" class="screen hidden">
     <h2 class="screen-title">The Crew</h2>
+    <!-- The crew's name, read-only for everyone here by owner ruling: renaming
+         the crew is an admin job, not something any member can do from the
+         screen they read it on. The editable field lives in Settings behind
+         the admin gate. Rendered as text, never an input, so there is nothing
+         to type into by accident. -->
+    <p id="crew-name-plate" class="crew-name-plate hidden"></p>
     <div id="crew-cards"></div>
+    <!-- title/body are rewritten by applyMode() in solo mode — instructions for
+         a hand-off that cannot succeed are worse than none (see app.js). -->
     <div class="crew-invite">
-      <div class="l-title rope-title">Invite a friend</div>
-      <p>Send them the app link and the crew code. They open it, enter the code, make a profile — in.</p>
+      <div class="l-title rope-title" id="crew-invite-title">Invite a friend</div>
+      <p id="crew-invite-body">Send them the app link and the crew code. They open it, enter the code, make a profile — in.</p>
       <button id="share-btn" class="btn btn-ghost">Share invite</button>
     </div>
   </main>
@@ -333,8 +456,18 @@
     </div>
     <div class="set-card">
       <div class="l-title">Crew</div>
-      <label class="lbl">Crew name <input id="set-crewname" type="text"></label>
-      <p class="hint">Crew code: <b id="set-crewcode"></b></p>
+      <!-- Renaming the crew is an ADMIN job (owner ruling): every member reads
+           the name on the Crew tab, nobody renames it from there, and here it
+           is read-only until the admin gate is unlocked. The input is not
+           merely disabled — it is swapped out for text, so there is no
+           greyed-out field inviting a tap that does nothing.
+           NOTE: the input still exists in the DOM and still holds the loaded
+           name while hidden, which is deliberate — saveSettings() sends its
+           value, so a member saving the escalation settings round-trips the
+           crew name unchanged instead of blanking it. -->
+      <p class="hint" id="set-crewname-read">Crew name: <b id="set-crewname-text"></b></p>
+      <label class="lbl hidden" id="set-crewname-row">Crew name <input id="set-crewname" type="text"></label>
+      <p class="hint" id="set-crewcode-row">Crew code: <b id="set-crewcode"></b></p>
       <p class="hint">Days roll over at midnight on your phone's clock. The app can't send iPhone notifications — set a daily alarm or Reminder if you want a prod.</p>
     </div>
     <div class="set-card">
@@ -355,6 +488,21 @@
       <div class="l-title">Danger zone</div>
       <p class="hint">Erases every crew, profile, and logged set stored on this phone — the app forgets everything and reopens to onboarding, fresh. Use this to wipe test data. This cannot be undone.</p>
       <button id="set-erase" class="btn btn-ghost danger">Erase all data on this phone</button>
+    </div>
+    <!-- Celebration lines. Admin-gated because it is crew-wide copy, and stored
+         in the crew settings jsonb so every member sees the same bank rather
+         than each device inventing its own. One line per row; blank rows and
+         duplicates are dropped on save. -->
+    <div class="set-card hidden" id="affirm-card">
+      <div class="l-title">Celebration lines</div>
+      <p class="hint">Shown when someone hits their target. One per line — a line is picked at random, and never the same one twice running.</p>
+      <textarea id="affirm-list" rows="9" spellcheck="false" aria-label="Celebration lines, one per line"></textarea>
+      <p class="hint" id="affirm-count"></p>
+      <p id="affirm-err" class="err hidden"></p>
+      <div class="affirm-actions">
+        <button id="affirm-reset" class="btn btn-ghost">Restore defaults</button>
+        <button id="affirm-save" class="btn-disc" aria-label="Save celebration lines"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5 5L20 6"/></svg></button>
+      </div>
     </div>
     <div class="set-card hidden" id="sim-date-card">
       <div class="l-title">Simulate date</div>
@@ -431,9 +579,22 @@
      Reuses the same <symbol id="rr-wordmark"> as the header/onboarding via
      <use>, at onboarding scale. Auto-dismisses; tap anywhere also dismisses. -->
 <div id="celebrate-overlay" class="overlay hidden" role="status" aria-live="polite">
+  <!-- The knot wordmark used to be the hero here. It is retired everywhere else
+       in the app, so succeeding was the one moment that resurrected the old
+       brand. Replaced with the thing you actually just did: the route runs to
+       the top and the lantern settles on the summit. Same asset, same path and
+       the same two-period flicker as the launch screen. -->
   <div class="celebrate-inner">
-    <span class="celebrate-flash" aria-hidden="true"></span>
-    <svg class="wordmark celebrate-wordmark" viewBox="20 24 674 168" width="300" height="75" role="img" aria-label="Rope &amp; Rung"><use href="#rr-wordmark"></use></svg>
+    <div class="cel-peak" aria-hidden="true">
+      <div class="cel-peak-ink"></div>
+      <!-- The celebration is a FLARE, not a replay of the climb. Redrawing the
+           route was showing you the journey again at the moment you finished it;
+           what a summit deserves is a signal fired off the top. A flare rises
+           from the peak, bursts, and the note lands under it. -->
+      <i class="cel-flare"></i>
+      <div class="cel-burst"><i class="cel-spark" style="--a:0deg"></i><i class="cel-spark" style="--a:30deg"></i><i class="cel-spark" style="--a:60deg"></i><i class="cel-spark" style="--a:90deg"></i><i class="cel-spark" style="--a:120deg"></i><i class="cel-spark" style="--a:150deg"></i><i class="cel-spark" style="--a:180deg"></i><i class="cel-spark" style="--a:210deg"></i><i class="cel-spark" style="--a:240deg"></i><i class="cel-spark" style="--a:270deg"></i><i class="cel-spark" style="--a:300deg"></i><i class="cel-spark" style="--a:330deg"></i><i class="cel-ring"></i><i class="cel-core-flash"></i></div>
+      <i class="cel-glow"></i><i class="cel-core"></i>
+    </div>
     <p id="celebrate-line" class="celebrate-line"></p>
   </div>
 </div>

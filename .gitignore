@@ -13,3 +13,10 @@ CLAUDE.md
 HANDOVER.md
 serve-dev.py
 .foreman/
+dev-crews.json
+# real Supabase creds, parked while the dev backend is in use
+config.js.parked
+# release runbook, local only
+PUBLISH.md
+# local safety copies
+*.bak-*

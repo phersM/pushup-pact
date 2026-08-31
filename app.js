@@ -4,7 +4,7 @@ import {
   toDayStr, addDays, parseDay, daysBetween, targetFor, dayTally, allTimeTotal, isLate,
   canDeclareRest, restsUsedInWeek, dayState, streak, DEFAULT_SETTINGS,
 } from "./logic.js";
-import { makeAdapter } from "./data.js";
+import { makeAdapter, CODE_LENGTH, looksLikeCode } from "./data.js";
 
 const $ = (id) => document.getElementById(id);
 const REPS_PER_REV = 20;            // one full revolution of the dial = 20 pushups
@@ -19,6 +19,11 @@ const state = {
   histMonth: null, histPerson: null, histSelected: null,
   excuseDay: null, screen: "home",
 };
+// loadCrew() can re-run (onboarding -> new crew, or a future re-join flow);
+// without tearing down the previous subscription first, each re-entry would
+// leave its poller/channel running and stack a second one on top, doubling
+// refetch() calls forever.
+let unsubscribeCrew = null;
 const SCREEN_ORDER = ["home", "today", "crew", "history", "settings"];
 
 const today = () => {
@@ -51,13 +56,23 @@ async function boot() {
   });
   updateHeadDate();
 
-  // invite deep-link: ?code=XYZ prefills the crew code for the invited mate
-  const inviteCode = new URLSearchParams(location.search).get("code");
-  if (inviteCode) $("crew-code").value = inviteCode.toUpperCase();
-
   const sess = session.load();
-  if (sess?.crewId && sess?.profileId) {
+  // An invite link must beat a stale session. boot() used to restore whatever
+  // crew this device last used BEFORE looking at ?code=, so tapping a friend's
+  // invite on a phone that had ever joined anything dropped you straight into
+  // your OWN profile and silently ignored the code — which is exactly what it
+  // looked like: "the link took them to their profile, not the login screen".
+  // A code that matches the session you already have is not a conflict, so
+  // only a DIFFERENT crew forces the join flow.
+  const invite = inviteCode();
+  applyMode(invite);
+  const inviteIsElsewhere = invite && sess?.crewCode &&
+    invite.trim().toUpperCase() !== String(sess.crewCode).toUpperCase();
+  if (sess?.crewId && sess?.profileId && !inviteIsElsewhere) {
     try {
+      // shared mode authenticates every call with the crew code, and a restored
+      // session never went through the join step that captures it
+      state.adapter.resume(sess.crewCode, sess.crewId);
       await loadCrew(sess.crewId, sess.profileId);
       showApp();
       return;
@@ -76,20 +91,44 @@ async function loadCrew(crewId, profileId) {
   state.settings = { ...DEFAULT_SETTINGS, ...(all.crew.settings || {}) };
   state.me = state.profiles.find((p) => p.id === profileId) ?? null;
   if (!state.me) throw new Error("profile not found");
-  state.adapter.subscribe(crewId, () => refetch());
+  if (unsubscribeCrew) { unsubscribeCrew(); unsubscribeCrew = null; }
+  unsubscribeCrew = state.adapter.subscribe(crewId, () => refetch());
 }
 
+// subscribe()'s poll/channel callback, visibilitychange, and every mutation
+// path all call refetch() independently; without a guard a slow network
+// could have two or three fetchAll() calls in flight at once and race on
+// which one renders last. `inFlight` makes every overlapping caller share
+// the SAME network round trip instead of starting a new one; `queuedAgain`
+// guarantees that shared promise doesn't resolve until at least one pass
+// that *started after* the latest caller's request has landed and rendered
+// — so `await refetch()` right after a mutation still sees that mutation
+// once it resolves, it just isn't necessarily its own dedicated round trip.
+let inFlight = null;
+let queuedAgain = false;
 async function refetch() {
   if (!state.crew) return;
-  const all = await state.adapter.fetchAll(state.crew.id);
-  state.crew = all.crew; state.profiles = all.profiles;
-  state.sets = all.sets; state.statuses = all.statuses;
-  state.settings = { ...DEFAULT_SETTINGS, ...(all.crew.settings || {}) };
-  // re-point state.me at the fresh copy (not just the stale reference from
-  // loadCrew) so a profile edit — or any other change to your own row —
-  // shows up immediately instead of only after a full reload.
-  state.me = state.profiles.find((p) => p.id === state.me.id) ?? state.me;
-  renderAll();
+  if (inFlight) { queuedAgain = true; return inFlight; }
+  inFlight = (async () => {
+    do {
+      queuedAgain = false;
+      try {
+        const all = await state.adapter.fetchAll(state.crew.id);
+        state.crew = all.crew; state.profiles = all.profiles;
+        state.sets = all.sets; state.statuses = all.statuses;
+        state.settings = { ...DEFAULT_SETTINGS, ...(all.crew.settings || {}) };
+        // re-point state.me at the fresh copy (not just the stale reference
+        // from loadCrew) so a profile edit — or any other change to your own
+        // row — shows up immediately instead of only after a full reload.
+        state.me = state.profiles.find((p) => p.id === state.me.id) ?? state.me;
+        renderAll();
+      } catch (e) {
+        console.warn("refetch failed", e); // background refresh failure shouldn't crash the app — next trigger retries
+      }
+    } while (queuedAgain);
+    inFlight = null;
+  })();
+  return inFlight;
 }
 
 function showApp() {
@@ -237,7 +276,35 @@ function confirmSheet(message, { confirmLabel = "Do it", cancelLabel = "Cancel",
 // onboarding-scale (300px) — never a redrawn/duplicated SVG. Persisted
 // per-day (target) / per-milestone (streak) in localStorage so re-renders,
 // refocuses, or extra reps after the moment never replay it.
-const TARGET_CELEBRATE_LINE = "Target smashed. That's today, done.";
+// The bank of target-met lines. Admin-editable (Settings, behind the gate) and
+// stored in the crew settings jsonb, so a crew shares one bank. This constant is
+// only the fallback for a crew that has never edited it.
+const AFFIRM_MAX = 30;          // characters — beyond this it wraps and stops
+                                // reading as a headline at the celebration size
+const AFFIRM_MAX_LINES = 40;
+const DEFAULT_AFFIRMATIONS = [
+  "You did it", "Summit reached", "Target met", "Rung claimed", "Held the line",
+  "Nothing owed", "Clean sheet", "Banked in full", "Full count", "Above the line",
+  "Ledger closed", "Signed off", "Day secured", "Every rep counted", "Peak taken",
+  "No excuse today", "Straight to the top", "That is the day", "You made the number",
+  "One more rung", "Topped out", "Roped in, topped out", "Earned outright",
+  "Nothing left owing", "Target cleared", "The climb continues", "Owed nothing",
+  "Stood it up", "Counted, all of it", "Made the summit",
+];
+function affirmations() {
+  const raw = state.settings && state.settings.affirmations;
+  const list = Array.isArray(raw) ? raw.filter((s) => typeof s === "string" && s.trim()) : [];
+  return list.length ? list : DEFAULT_AFFIRMATIONS;
+}
+let lastAffirm = null;
+function pickAffirmation() {
+  const list = affirmations();
+  if (list.length === 1) return list[0];
+  let v;
+  do { v = list[Math.floor(Math.random() * list.length)]; } while (v === lastAffirm);
+  lastAffirm = v;   // never the same line two celebrations running
+  return v;
+}
 const STREAK_CELEBRATE_LINES = {
   7: "Seven days. Knot tied.",
   14: "Two weeks straight. The rope holds.",
@@ -274,33 +341,22 @@ function showNextCelebration() {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   $("celebrate-line").textContent = line;
   overlay.classList.remove("hidden");
-  if (!reduced) spawnCelebrateConfetti();
   hapticTick(reduced ? 12 : 28);
   clearTimeout(celebrateTimer);
-  celebrateTimer = setTimeout(dismissCelebration, reduced ? 1600 : 3200);
+  // The celebration climb runs 350ms + 2800ms, then the summit lights at 3000ms.
+  // The old 3200ms dwell dismissed the overlay just as the lantern came up, so
+  // nobody ever saw the thing the celebration is about. Long enough to watch
+  // the climb finish and hold; a tap still dismisses it early.
+  celebrateTimer = setTimeout(dismissCelebration, reduced ? 1800 : 6200);
   overlay.addEventListener("click", dismissCelebration, { once: true });
 }
 
-// bespoke volt-paper confetti burst — hand-rolled for the brand (this is NOT
-// the retired Aceternity spark port): little cut-paper rectangles thrown up
-// and out from behind the wordmark, in the app's own colours only.
-const CFETTI_COLORS = ["#C7F464", "#C7F464", "#FAF3E8", "#0F7A6D", "#F2C51D"];
-function spawnCelebrateConfetti() {
-  const inner = document.querySelector("#celebrate-overlay .celebrate-inner");
-  if (!inner) return;
-  for (let i = 0; i < 28; i++) {
-    const p = document.createElement("span");
-    p.className = "cfetti";
-    p.style.setProperty("--c", CFETTI_COLORS[i % CFETTI_COLORS.length]);
-    p.style.setProperty("--tx", `${(Math.random() * 2 - 1) * 190}px`);
-    p.style.setProperty("--peak", `${-(60 + Math.random() * 140)}px`);
-    p.style.setProperty("--ty", `${140 + Math.random() * 220}px`);
-    p.style.setProperty("--rot", `${(Math.random() * 2 - 1) * 540}deg`);
-    p.style.setProperty("--d", `${Math.random() * 0.25}s`);
-    inner.appendChild(p);
-    setTimeout(() => p.remove(), 2000);
-  }
-}
+// Confetti removed 2026-08-11 (owner: the old celebration is not right for
+// this app any more). It threw lime #C7F464 and gold #F2C51D cut-paper — two
+// colours that are not in the title-screen palette at all — across a screen
+// whose whole language is one ink on paper. The climb finishing and the summit
+// lighting is the celebration now; nothing is thrown.
+
 
 function dismissCelebration() {
   clearTimeout(celebrateTimer);
@@ -316,7 +372,7 @@ function dismissCelebration() {
 function maybeCelebrateTargetMet(beforeTally, repsAdded) {
   const target = targetFor(today(), state.settings);
   if (beforeTally < target && beforeTally + repsAdded >= target) {
-    queueCelebrationOnce("target", today(), TARGET_CELEBRATE_LINE);
+    queueCelebrationOnce("target", today(), pickAffirmation());
   }
 }
 function maybeCelebrateStreak() {
@@ -331,6 +387,81 @@ function maybeCelebrateStreak() {
 let obCrew = null, obAvatar = "pumper", obColor = "teal";
 const AVATARS = ["pumper", "flex", "grit", "beast", "bolt", "spring", "zen", "bell", "flame", "star", "peak", "runner", "crown", "wave", "rocket", "paw", "robot", "coffee", "controller", "headphones"];
 
+// invite deep-link: ?code=XYZ prefills the crew code for the invited friend
+const inviteCode = () => new URLSearchParams(location.search).get("code");
+
+// Solo mode isn't a degraded shared mode — it's a different product, and the
+// onboarding has to say so. When makeAdapter() falls back to LocalAdapter
+// (no config.js, or Supabase unreachable) every crew code entered can only
+// ever miss, and the miss panel's only forward path is "New crew" — which is
+// how an invited friend ends up alone in an empty crew thinking they joined.
+// So in solo mode the code field is not shown at all, and any ?code= link is
+// answered honestly instead of being silently swallowed.
+function applyMode(code) {
+  const shared = !!state.adapter.shared;
+  $("ob-code-entry").classList.toggle("hidden", !shared);
+  $("ob-solo").classList.toggle("hidden", shared);
+  // sharing an invite that nobody can act on is the same failure from the
+  // other end — don't offer it until there's a database behind the code.
+  $("share-btn").classList.toggle("hidden", !shared);
+  if (!shared) {
+    $("crew-invite-title").textContent = "Crews are offline";
+    $("crew-invite-body").textContent =
+      "Invites are switched off until the crew database is back — a code shared now couldn't be opened by anyone. Keep banking; your history is safe on this phone.";
+  }
+  if (!shared && code) {
+    $("ob-solo").querySelector(".ob-notfound-msg").textContent =
+      "That invite can't be opened yet.";
+  }
+  if (shared && code) $("crew-code").value = code.toUpperCase();
+}
+
+$("ob-solo-btn").addEventListener("click", async () => {
+  try {
+    const crew = await state.adapter.createCrew({ ...DEFAULT_SETTINGS, challenge_start: nextMonday() });
+    await enterCrew(crew);
+  } catch (e) { obErr("Couldn't start. Try again."); console.error(e); }
+});
+
+// Every "start a crew" path funnels through here so the founder is shown the
+// generated code and offered a crew name exactly once. Shared by the openly
+// offered "No code?" button and the not-found panel's "New crew", which
+// previously both dropped straight into naming yourself with the code never
+// shown at all.
+async function startNewCrew() {
+  const crew = await state.adapter.createCrew({ ...DEFAULT_SETTINGS, challenge_start: nextMonday() });
+  hideCodeNotFound();
+  obErr("");
+  obCrew = crew;
+  $("ob-newcrew-code").textContent = crew.crew_code;
+  $("ob-crewname").value = "";
+  $("ob-step-code").classList.add("hidden");
+  $("ob-step-newcrew").classList.remove("hidden");
+}
+
+$("ob-newcrew-go").addEventListener("click", async () => {
+  const name = $("ob-crewname").value.trim();
+  try {
+    // Empty is a legitimate answer: the placeholder shows the schema default,
+    // so skipping the field leaves the crew called The Climb rather than "".
+    if (name && name !== obCrew.name) {
+      await state.adapter.saveSettings(obCrew.id, obCrew.settings, name);
+      obCrew = { ...obCrew, name };
+    }
+  } catch (e) { console.error(e); }   // a name is not worth blocking entry over
+  $("ob-step-newcrew").classList.add("hidden");
+  await enterCrew(obCrew);
+});
+
+// "No code? Start a crew" — the openly-offered version of what the not-found
+// panel's "New crew" does, for someone who never had a code to type. A new
+// crew still gets a freshly GENERATED code either way; this adds a way in,
+// not a way to choose your own string.
+$("ob-no-code").addEventListener("click", async () => {
+  try { await startNewCrew(); }
+  catch (e) { obErr("Couldn't reach the crew database. Try again."); console.error(e); }
+});
+
 // crew-code entry: a failed lookup must NEVER be reachable by tapping the same
 // button twice — that's how a typo silently forked someone into an empty crew
 // (council finding, 2026-07-23). A miss shows a distinct "not found" panel with
@@ -339,7 +470,19 @@ const AVATARS = ["pumper", "flex", "grit", "beast", "bolt", "spring", "zen", "be
 // relabels itself into a create action.
 $("ob-code-btn").addEventListener("click", async () => {
   const code = $("crew-code").value.trim().toUpperCase();
-  if (code.length !== 6) return obErr("Crew codes are exactly 6 characters — no shortcuts, so nobody wanders into your crew by accident. Give us the rest of it.");
+  if (code.length !== CODE_LENGTH) return obErr(`A crew code is exactly ${CODE_LENGTH} characters. Entering someone's? Check you've got all of it. No code of your own? Start a crew below.`);
+  // I, O, 0 and 1 are deliberately absent from every real code, so one turning
+  // up is a misread off a screenshot, not a crew that doesn't exist — say so
+  // rather than sending them down the "no crew found" path for a typo.
+  //
+  // Both messages LEAD with where a code comes from. The old pair opened on
+  // the I/J/O/Q substitution table, which only makes sense if you already know
+  // you're copying an issued code — and the person most likely to be reading
+  // it is the one who just invented a code, for whom a spelling hint explains
+  // nothing (owner, having typed "monday26": "the instruction is a little
+  // confusing"). The transcription hint is still there, demoted to the end
+  // where it serves the case it was written for.
+  if (!looksLikeCode(code)) return obErr("Crew codes are given out, not made up — get yours from whoever started the crew, or start your own below. (Copying one down? A code never contains I, O, 0 or 1.)");
   hideCodeNotFound();
   try {
     const crew = await state.adapter.findCrew(code);
@@ -367,13 +510,12 @@ $("ob-notfound-fix").addEventListener("click", () => {
   $("crew-code").select();
 });
 
+// deliberately does NOT reuse the code that just missed — a new crew gets a
+// freshly generated one. Reusing it is how a mistyped code turned into a
+// stranger's crew the moment two people ever picked the same string.
 $("ob-notfound-create").addEventListener("click", async () => {
-  const code = $("crew-code").value.trim().toUpperCase();
-  try {
-    const crew = await state.adapter.createCrew(code, { ...DEFAULT_SETTINGS, challenge_start: nextMonday() });
-    hideCodeNotFound();
-    await enterCrew(crew);
-  } catch (e) { obErr("Couldn't reach the crew database. Try again."); console.error(e); }
+  try { await startNewCrew(); }
+  catch (e) { obErr("Couldn't reach the crew database. Try again."); console.error(e); }
 });
 
 async function enterCrew(crew) {
@@ -384,8 +526,16 @@ async function enterCrew(crew) {
   const existing = await state.adapter.listProfiles(crew.id);
   $("ob-existing").innerHTML = existing.map((p) =>
     `<button data-id="${p.id}">${avatarChip(p.avatar)}${esc(p.name)}</button>`).join("");
+  // One mis-tap here files pushups into someone else's account for good — the
+  // only unrecoverable data error in the app — so confirm identity before
+  // adopting an existing profile instead of switching on first tap.
   $("ob-existing").querySelectorAll("button").forEach((b) =>
-    b.addEventListener("click", () => finishOnboarding(existing.find((p) => p.id === b.dataset.id))));
+    b.addEventListener("click", async () => {
+      const p = existing.find((p) => p.id === b.dataset.id);
+      if (!p) return;
+      if (!(await confirmSheet(`Continue as ${p.name}? You'll be logging pushups to their tally, not starting a new profile.`, { confirmLabel: "Continue as them", cancelLabel: "Cancel" }))) return;
+      finishOnboarding(p);
+    }));
   $("ob-avatars").innerHTML = AVATARS.map((a) => `<button data-a="${a}" ${a === obAvatar ? 'class="sel"' : ""} aria-label="${a}">${avatarHTML(a)}</button>`).join("");
   $("ob-avatars").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
@@ -414,7 +564,7 @@ $("ob-create-btn").addEventListener("click", async () => {
 });
 
 async function finishOnboarding(profile) {
-  session.save({ crewId: obCrew.id, profileId: profile.id });
+  session.save({ crewId: obCrew.id, profileId: profile.id, crewCode: obCrew.crew_code });
   await loadCrew(obCrew.id, profile.id);
   showApp();
 }
@@ -627,9 +777,12 @@ function renderDial() {
   const bank = $("bank-btn");
   bank.disabled = !state.compose;
   bank.classList.toggle("reverse", state.compose < 0);
-  bank.setAttribute("aria-label", state.compose
+  // one string, two consumers: the visible caption and the accessible name are
+  // the same words, so they cannot drift apart as the copy changes
+  const bankLabel = state.compose
     ? (state.compose > 0 ? `Bank ${state.compose} pushups` : `Remove ${-state.compose} pushups`)
-    : "Crank the dial to bank");
+    : "Crank the dial to bank";
+  $("bank-cap").textContent = bankLabel;
 }
 
 // ---------- today ----------
@@ -840,6 +993,14 @@ $("excuse-delete").addEventListener("click", async () => {
 // still here: name/you-tag, streak+all-time+PB, today's tally, the 7-day
 // strip, data-pid — just laid out for the avatar to lead.
 function renderCrew() {
+  // The crew's name, read-only. Hidden entirely in solo mode, where there is
+  // no shared crew for a name to belong to. textContent, never innerHTML —
+  // this string is typed by a person and comes back off the wire.
+  const plate = $("crew-name-plate");
+  const crewName = state.adapter.shared && state.crew ? (state.crew.name || "").trim() : "";
+  plate.textContent = crewName;
+  plate.classList.toggle("hidden", !crewName);
+
   const cards = state.profiles.map((p) => {
     const st = dayState({ sets: state.sets, statuses: state.statuses, profileId: p.id, day: today(), today: today(), settings: state.settings });
     const days = [...Array(7)].map((_, i) => addDays(today(), i - 6));
@@ -1101,7 +1262,14 @@ function renderSettings() {
   $("set-cap").value = state.settings.target_cap;
   $("set-rest").value = state.settings.rest_days_per_week;
   $("set-startdate").value = state.settings.challenge_start;
+  // Both are filled every time: the hidden input keeps the name alive across a
+  // member's settings save (see the markup note), the text line is what a
+  // non-admin actually reads.
   $("set-crewname").value = state.crew.name ?? "";
+  $("set-crewname-text").textContent = state.crew.name || "The Climb";
+  // in solo mode the code is a local placeholder nobody can join with — showing
+  // it invites exactly the failed hand-off this guard exists to prevent.
+  $("set-crewcode-row").classList.toggle("hidden", !state.adapter.shared);
   $("set-crewcode").textContent = state.crew.crew_code;
   $("set-sim-date").value = localStorage.getItem("pushpact-date-override") || "";
 
@@ -1186,11 +1354,76 @@ function tryAdminCode() {
     $("danger-zone").classList.remove("hidden");
     $("sim-date-card").classList.remove("hidden");
     $("state-dump-card").classList.remove("hidden");
+    $("affirm-card").classList.remove("hidden");
+    renderAffirmEditor();
+    // renaming the crew joins the admin surface: text swaps to a live field
+    $("set-crewname-row").classList.remove("hidden");
+    $("set-crewname-read").classList.add("hidden");
     switchScreen("settings");
   } else {
     $("admin-modal-err").classList.remove("hidden");
   }
 }
+// ---------- admin: celebration lines ----------
+function renderAffirmEditor() {
+  $("affirm-list").value = affirmations().join("\n");
+  affirmCount();
+}
+// Validation is live rather than only on save: a line that is too long has to
+// be visible as too long WHILE it is being typed, otherwise the first the admin
+// hears of it is a rejection after they have written twenty of them.
+function affirmParse() {
+  const raw = $("affirm-list").value.split("\n").map((s) => s.trim()).filter(Boolean);
+  const seen = new Set();
+  const kept = [];
+  const over = [];
+  for (const line of raw) {
+    if (line.length > AFFIRM_MAX) over.push(line);
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(line);
+  }
+  return { kept, over };
+}
+function affirmCount() {
+  const { kept, over } = affirmParse();
+  const el = $("affirm-count");
+  el.textContent = over.length
+    ? `${kept.length} lines — ${over.length} over ${AFFIRM_MAX} characters`
+    : `${kept.length} lines, longest ${Math.max(0, ...kept.map((s) => s.length))} of ${AFFIRM_MAX} characters`;
+  el.classList.toggle("over", over.length > 0);
+}
+$("affirm-list").addEventListener("input", affirmCount);
+$("affirm-reset").addEventListener("click", () => {
+  $("affirm-list").value = DEFAULT_AFFIRMATIONS.join("\n");
+  affirmCount();
+});
+$("affirm-save").addEventListener("click", async () => {
+  const err = $("affirm-err");
+  const { kept, over } = affirmParse();
+  if (over.length) {
+    err.textContent = `${over.length} line${over.length > 1 ? "s are" : " is"} over ${AFFIRM_MAX} characters. Shorten ${over.length > 1 ? "them" : "it"} — anything longer wraps and stops reading as a headline.`;
+    err.classList.remove("hidden"); return;
+  }
+  if (!kept.length) {
+    err.textContent = "Leave at least one line, or restore the defaults.";
+    err.classList.remove("hidden"); return;
+  }
+  if (kept.length > AFFIRM_MAX_LINES) {
+    err.textContent = `That is ${kept.length} lines. Keep it under ${AFFIRM_MAX_LINES}.`;
+    err.classList.remove("hidden"); return;
+  }
+  err.classList.add("hidden");
+  // crew-wide copy, so it rides in the crew settings alongside the escalation
+  state.settings = { ...state.settings, affirmations: kept };
+  try {
+    await state.adapter.saveSettings(state.crew.id, state.settings, $("set-crewname").value.trim());
+    await refetch();
+    renderAffirmEditor();
+  } catch (e) { err.textContent = "Could not save. Try again."; err.classList.remove("hidden"); console.warn(e); }
+});
+
 $("admin-modal-submit").addEventListener("click", tryAdminCode);
 $("admin-modal-code").addEventListener("keydown", (e) => { if (e.key === "Enter") tryAdminCode(); });
 
@@ -1249,9 +1482,74 @@ function switchScreen(name) {
 document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", () => switchScreen(t.dataset.screen)));
 
+// The .app-peak watermark's fill: same dayTally/targetFor pair renderHome
+// uses for the home dial, pushed as a CSS custom property so the mountain
+// itself climbs with today's tally instead of just the numbers on the card.
+// Runs ahead of the `!state.me` guard below (and guards itself) so a
+// signed-out/no-target state always resolves to an explicit 0, never NaN.
+function updatePeakFill() {
+  const peak = document.querySelector(".app-peak");
+  const lantern = document.querySelector(".app-lantern");
+  if (!peak) return;
+  const target = state.me ? targetFor(today(), state.settings) : 0;
+  const tally = state.me ? dayTally(state.sets, state.me.id, today()) : 0;
+  // target>0 guard: dividing by a 0/undefined target is how "%NaN" happens
+  const pct = target > 0 ? Math.min(100, Math.max(0, (tally / target) * 100)) : 0;
+  peak.style.setProperty("--peak-fill", `${pct}%`);
+  // the route track and the walker live on .app-lantern, so both custom
+  // properties are set on it too — --peak-pct is the same number, typed as
+  // <number> for stroke-dashoffset (a % there means something else entirely)
+  if (lantern) {
+    // your climb, in your colour — the avatar colour the member picked
+    const mine = state.me ? avatarParts(state.me.avatar).color : null;
+    if (mine) lantern.style.setProperty("--trail-me", mine);
+    else lantern.style.removeProperty("--trail-me");
+    // Put the walker on the path by MEASURING the path, not by asking CSS to
+    // do it. getPointAtLength works in the SVG's own user units — the same
+    // space the route is drawn in — so the marker cannot drift away from the
+    // line when the page is zoomed or the text scaled, which is exactly what
+    // CSS offset-path was doing at 3x.
+    const track = lantern.querySelector(".al-track");
+    const walker = lantern.querySelector(".al-walker");
+    if (track && walker && typeof track.getTotalLength === "function") {
+      const len = track.getTotalLength();
+      if (len > 0) {
+        const p = track.getPointAtLength((pct / 100) * len);
+        // SVG transform ATTRIBUTE with unitless values. A CSS transform of
+        // translate(536px,7px) on an SVG child is not reliably read as user
+        // units — that is why the dot sat out to the right of the line and
+        // moved when the text was scaled. Unitless attribute values are user
+        // units by definition, so this cannot be misread at any zoom.
+        walker.setAttribute("transform", `translate(${p.x} ${p.y})`);
+        // first placement must not animate in from the origin, which is what
+        // made it slide in from the left edge at peak height on load
+        if (!walker.dataset.placed) {
+          walker.dataset.placed = "1";
+          const prev = walker.style.transition;
+          walker.style.transition = "none";
+          void walker.getBoundingClientRect();
+          walker.style.transition = prev;
+        }
+      }
+    }
+    lantern.style.setProperty("--peak-fill", `${pct}%`);
+    lantern.style.setProperty("--peak-pct", `${pct}`);
+    lantern.classList.toggle("walking", pct > 0);
+    peak.classList.toggle("is-lit", target > 0 && tally >= target);
+  }
+  // .app-lantern is an unmasked sibling of .app-peak, not a masked child of
+  // it (a CSS mask would flatten it into the masked group and clip it), so
+  // its lit state toggles on its own element here instead of on .app-peak.
+  lantern?.classList.toggle("is-lit", target > 0 && tally >= target);
+}
+
 function renderAll() {
+  updatePeakFill();
   if (!state.me) return;
   updateHeadDate();
+  // the header badge is the signed-in member, so it has to follow profile edits
+  // and profile switches rather than being written once at boot
+  $("head-avatar").innerHTML = avatarChip(state.me.avatar);
   // admin entry point only makes sense where the admin cards actually live
   $("menu-wrap").classList.toggle("hidden", state.screen !== "settings");
   if (state.screen === "home") renderHome();
@@ -1312,31 +1610,6 @@ function chipBankFeedback(n) {
   setTimeout(() => dial.classList.remove("chip-pulse"), 650);
 }
 
-// Home hero's dial glyph — a compact, non-interactive echo of the Today
-// dial's own geometry (track + progress arc + knob dot at the progress
-// point), not a re-invented widget. Teal progress/knob normally, volt once
-// the day's target is met (over-100% just clamps to a full ring, still volt).
-function homeDialSVG(tally, target) {
-  const done = tally >= target;
-  const frac = target > 0 ? Math.min(tally / target, 1) : 0;
-  const r = 40, cx = 50, cy = 50;
-  const c = 2 * Math.PI * r;
-  const dash = c.toFixed(2);
-  const offset = (c * (1 - frac)).toFixed(2);
-  const theta = frac * Math.PI * 2;
-  const kx = (cx + r * Math.sin(theta)).toFixed(2);
-  const ky = (cy - r * Math.cos(theta)).toFixed(2);
-  const col = done ? "var(--volt)" : "var(--accent)";
-  return `
-    <svg class="hc-dial" viewBox="0 0 100 100" aria-hidden="true">
-      <circle class="hc-dial-track" cx="${cx}" cy="${cy}" r="${r}"></circle>
-      <circle class="hc-dial-halo" cx="${cx}" cy="${cy}" r="${r}" stroke-dasharray="${dash}" stroke-dashoffset="${offset}" transform="rotate(-90 ${cx} ${cy})"></circle>
-      <circle class="hc-dial-prog" cx="${cx}" cy="${cy}" r="${r}" stroke="${col}" stroke-dasharray="${dash}" stroke-dashoffset="${offset}" transform="rotate(-90 ${cx} ${cy})"></circle>
-      <circle class="hc-dial-knobhalo" cx="${kx}" cy="${ky}" r="7.5"></circle>
-      <circle class="hc-dial-knob" cx="${kx}" cy="${ky}" r="5.5" fill="${col}"></circle>
-    </svg>`;
-}
-
 function renderHome() {
   const h = new Date().getHours();
   const part = h < 12 ? "Morning" : h < 18 ? "Afternoon" : "Evening";
@@ -1364,7 +1637,9 @@ function renderHome() {
     <div class="hc-top"><span class="hc-label">You, today</span><span class="state-chip bg-${st.state}">${stateLabel(st)}</span></div>
     <div class="hc-main">
       <div class="hc-nums"><span class="hc-tally">${st.tally}</span><span class="hc-of">/ ${st.target}</span></div>
-      ${homeDialSVG(st.tally, st.target)}
+      <!-- design council: static dial glyph removed here — aria-hidden, non-interactive,
+           but drawn with a knob sitting at the exact progress angle right above chips
+           that DO log. Read as a broken control, not decoration. -->
     </div>
     <div class="hc-meta">${streakLine}${weekPart}${nudge}</div>
     <div class="hc-chips">

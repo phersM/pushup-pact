@@ -14,6 +14,17 @@
      the disc reads as before while the figure/orbit on top go full brightness. */
   --ul-disc:#85B7AB;
   --accent:#0F7A6D; --pine:#0B3B34; --volt:#C7F464;
+  /* launch peak: ink in light, PAPER in dark — the asset carries no colour of
+     its own (it is a density mask), so inverting the wash is a colour swap
+     rather than a second image. Owner call 2026-08-08: "in dark mode the
+     mountain should be inverted — white on teal". */
+  --peak-ink:#0F7A6D; --peak-rgb:15,122,109; --studio-ink:#0B3B34;
+  /* Route trail: ONE colour per theme, measured. Against the three grounds the
+     route crosses in light mode (paper sky, peak unfilled, peak filled) ink is
+     the only palette colour that never drops below 7:1. Dark mode uses paper,
+     which holds 4.15:1 at its worst — over the FILLED peak, the hardest case.
+     With a colour per theme the two-layer casing this needed before is gone. */
+  --trail-ink:#1F1B16; --trail-launch:#1F1B16;
   --met:#2F7A4B; --rest:#5B7FA6; --excused:#C98A2B; --missed:#B23A2E; --pending:#D8CFBE;
   --hair:rgba(31,27,22,.14);
   --postit:#F0D48A; --postit-ink:#4A3A12; --postit-ink-soft:#8A6D1E; --postit-muted:#B99B4E; --postit-fold:#D8B759;
@@ -40,6 +51,8 @@
     --hair:rgba(250,243,232,.14);
     --shadow-rgb:0,0,0; --texture-rgb:250,243,232;
     --dial-ring:#123F38; --chip-active-bg:#123F38;
+    --peak-ink:#FAF3E8; --peak-rgb:250,243,232; --studio-ink:#FAF3E8;
+    --trail-ink:#FAF3E8; --trail-launch:#0F7A6D;
     --tabbar-bg:rgba(11,59,52,.28);
     /* accent/pine/volt/grad/postit family intentionally unchanged: the brand
        gradient and the post-it's "physical yellow paper" both need to read
@@ -82,6 +95,10 @@ input, textarea{-webkit-user-select:text; user-select:text}
    the real under-strand/over-strand length ratio, measured via
    getTotalLength(), not eyeballed, so the speed feels roughly constant
    across the direction change. */
+/* NOTE: these two ride the ROPE inside the 96x96 logomark, NOT the mountain
+   route in the 900x805 onboarding art. The two paths have been confused by a
+   bulk find-and-replace before; they are not interchangeable, and a route path
+   dropped in here throws the glow clean off the mark. */
 .rr-lantern-a{offset-path:path("M 6 34 C 18 34, 22 26, 32 24 C 44 22, 54 26, 52 34 C 50 42, 38 42, 36 34");animation:rrPulseA 5.1s linear infinite}
 .rr-lantern-b{offset-path:path("M 36 34 C 34 26, 44 24, 50 28 C 58 33, 70 34, 90 34");animation:rrPulseB 5.1s linear infinite}
 @keyframes rrPulseA{0%{offset-distance:0%;opacity:1}55.6%{offset-distance:100%;opacity:1}55.7%{opacity:0}100%{opacity:0;offset-distance:100%}}
@@ -102,7 +119,7 @@ input, textarea{-webkit-user-select:text; user-select:text}
 .brand{display:flex;align-items:center;gap:8px}
 .logomark{width:26px;height:26px}
 /* onboarding: wordmark promoted (was sharing top billing with the .ob-logo
-   badge, now removed from this spot entirely — see .ob-watermark below) —
+   badge, since retired along with the whole pushup watermark) —
    scoped class so the shared .wordmark base rule (used by the header's small
    mark and the celebration overlay) stays untouched. Given a soft brand-teal
    shadow for weight. Width capped BELOW .ob-inner's own ~327px content box
@@ -120,9 +137,9 @@ input, textarea{-webkit-user-select:text; user-select:text}
    <use> shadow boundary (plain selectors do not), so this retints ONLY this
    instance — the header badge and celebration overlay keep the --paper fallback.
    Scoped to the knot's own halo path; the ROPE/RUNG letter halos are untouched. */
-.ob-wordmark{width:min(312px,86vw);height:auto;display:block;margin:6px auto 8px;
-  --rr-weave:var(--ul-disc);
-  filter:drop-shadow(0 6px 20px rgba(15,122,109,.22))}
+/* .ob-wordmark / .ob-watermark retired 2026-08-08: the launch screen is now
+   the Ascent lockup over the painted peak. #rr-wordmark still serves the header
+   and the celebration overlay; #rr-underlay is defined but no longer used. */
 /* full-screen ambient watermark (owner feedback 2026-07-24): the pushup figure
    that used to sit as a badge directly above the wordmark, now blown up huge,
    faint, and pinned behind every onboarding element instead of competing with
@@ -154,10 +171,7 @@ input, textarea{-webkit-user-select:text; user-select:text}
    content sitting on top. Motion (lm-body/lm-orbit) is killed by the
    existing global prefers-reduced-motion rule at the top of this file,
    same as everywhere else. */
-.ob-watermark{position:fixed;left:50%;top:52%;transform:translate(-50%,-50%);
-  width:clamp(320px,150vmin,640px);height:clamp(320px,150vmin,640px);
-  z-index:-1;pointer-events:none;overflow:visible}
-.ob-watermark .lm-orbit circle:first-child{opacity:.9}
+
 .head-actions{display:flex;align-items:center;gap:10px}
 .head-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .head-date{font-size:13px;color:var(--muted);font-weight:600}
@@ -201,19 +215,6 @@ input, textarea{-webkit-user-select:text; user-select:text}
 .hc-nums{display:flex;align-items:baseline;gap:8px}
 .hc-tally{font-family:Archivo,sans-serif;font-weight:800;font-size:64px;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .hc-of{font-size:18px;font-weight:600;opacity:.8}
-/* dial glyph — the hero card's echo of the Today dial's signature shape,
-   replacing the old linear .hc-bar strip (council: "crown the dial as the
-   brand's signature shape on Home"). Track + progress arc + knob dot, same
-   language as the big dial: teal normally, volt once today's target is met.
-   The halo circle (paper-tinted, wider+faint, under the coloured arc) is the
-   same trick the wordmark's own text halo uses, so the arc still reads
-   clearly against the hero's teal->pine gradient. Non-interactive. */
-.hc-dial{width:60px;height:60px;flex:none}
-.hc-dial-track{fill:none;stroke:rgba(255,252,245,.22);stroke-width:9}
-.hc-dial-halo{fill:none;stroke:var(--on-accent);opacity:.32;stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset .6s var(--ease-out)}
-.hc-dial-prog{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .6s var(--ease-out),stroke .3s}
-.hc-dial-knobhalo{fill:var(--on-accent);opacity:.9}
-.hc-dial-knob{transition:fill .3s}
 .hc-meta{font-size:13px;font-weight:600;opacity:.85;margin-top:16px}
 .hc-chips{display:flex;gap:8px;margin-top:14px}
 .hc-chip{flex:1;min-height:40px;border:1px solid rgba(255,252,245,.3);background:rgba(255,252,245,.14);border-radius:999px;
@@ -238,7 +239,7 @@ input, textarea{-webkit-user-select:text; user-select:text}
 .ws-day.today .ws-dot{box-shadow:0 0 0 3px rgba(199,244,100,.55)}
 .ws-day.future .ws-dot{width:7px;height:7px;border-radius:50%;background:transparent;border:1.5px dashed var(--hair)}
 .home-crew{padding:20px 22px 0}
-.home-crew .row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--hair);border-radius:var(--r-md);
+.home-crew .row{display:flex;align-items:center;gap:10px;background:rgba(var(--card-rgb),.78);border:1px solid var(--hair);border-radius:var(--r-md);
   box-shadow:var(--shadow-card);padding:11px 12px;margin-bottom:8px;animation:rowIn .4s var(--ease-out) backwards}
 .home-crew .row .avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font-size:15px}
 .home-crew .row .nm{font-weight:700;font-size:15px}
@@ -246,11 +247,22 @@ input, textarea{-webkit-user-select:text; user-select:text}
 .home-crew .row .nums small{color:var(--muted);font-family:"Instrument Sans",sans-serif;font-weight:600;font-size:12px}
 .home-crew .row .sdot{width:10px;height:10px;border-radius:5px}
 .home-postit{display:flex;justify-content:flex-end;padding:14px 22px 0}
-.screen-title{font-family:Archivo,sans-serif;font-weight:800;font-size:26px;letter-spacing:-.02em;padding:18px 22px 4px}
+/* Screen titles take the launch screen's display face. Bebas is caps-only and
+   tracks tight by default, so it needs the same .13em + matching text-indent
+   the ASCENT lockup uses - Bebas adds its tracking to the RIGHT of each glyph,
+   which shunts a centred or left-aligned word off its own edge without it. */
+.screen-title{font-family:"Bebas Neue",Archivo,sans-serif;font-weight:400;font-size:34px;
+  line-height:1;letter-spacing:.09em;text-transform:uppercase;color:var(--ink);
+  padding:20px 22px 6px}
 
 /* labels / text */
-.lbl{display:block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
-.l-title{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+/* Field labels and card titles move to the mono, matching CREW CODE on the
+   launch screen. Weight drops from 700 to 500 because JetBrains Mono at 700 in
+   tracked caps reads as shouting next to Bebas. */
+.lbl{display:block;font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500;
+  font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.l-title{font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500;
+  font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
 .hint{font-size:13px;color:var(--muted);margin-top:10px}
 .err{font-size:13px;color:var(--missed);margin-top:8px}
 .ink{color:var(--ink)}
@@ -326,7 +338,11 @@ input, textarea{-webkit-user-select:text; user-select:text}
 .dial .progress-ring{position:absolute;inset:27px;border-radius:50%;pointer-events:none;z-index:1;
   -webkit-mask:radial-gradient(closest-side,transparent calc(100% - 7px),#000 calc(100% - 6px));
   mask:radial-gradient(closest-side,transparent calc(100% - 7px),#000 calc(100% - 6px));}
-.knob-arm{position:absolute;inset:0;pointer-events:none}
+/* The knob must sit ON TOP of the progress arc. Lifting .knob-arm is the WHOLE
+   fix — an earlier attempt also gave .dial .ring a z-index, which made the ring
+   a stacking context and buried the tally, the target text and the progress arc
+   underneath it. Touch this element only. */
+.knob-arm{position:absolute;inset:0;pointer-events:none;z-index:3}
 .dial:not(.dragging) .knob-arm{transition:transform .3s var(--ease-out)}
 .knob{position:absolute;top:-14px;left:50%;transform:translateX(-50%);
   width:54px;height:54px;border-radius:50%;background:var(--volt);
@@ -369,7 +385,7 @@ input, textarea{-webkit-user-select:text; user-select:text}
   cursor:pointer;padding:6px;flex:none}
 
 .quick-chips{display:flex;gap:10px;justify-content:center;padding:20px 22px 0}
-.qchip{flex:0 1 96px;min-height:44px;border:1px solid var(--hair);background:var(--card);border-radius:999px;
+.qchip{flex:0 1 96px;min-height:44px;border:1px solid var(--hair);background:rgba(var(--card-rgb),.78);border-radius:999px;
   font-family:Archivo,sans-serif;font-weight:800;font-size:16px;color:var(--accent);cursor:pointer;
   box-shadow:var(--shadow-card);transition:transform .15s var(--ease-out),background .2s}
 .qchip:active{transform:scale(.94);background:var(--chip-active-bg)}
@@ -380,7 +396,11 @@ input, textarea{-webkit-user-select:text; user-select:text}
 /* Home order is fixed: your own card first, then the team (owner decision — solo is first-class) */
 /* bank-btn is now an icon disc, not a width:100% block button — centre it
    instead of letting it default to flex-start */
-.bank-zone{padding:14px 22px 0;display:flex;justify-content:center}
+.bank-zone{padding:14px 22px 0;display:flex;flex-direction:column;align-items:center;gap:9px}
+/* matches .ob-nf-cap so the two disc+caption moments in the app read the same */
+.bank-cap{font-family:"Instrument Sans",sans-serif;font-weight:600;font-size:12.5px;
+  color:var(--muted);text-align:center;transition:color .15s}
+.bank-zone:has(#bank-btn:not(:disabled)) .bank-cap{color:var(--ink)}
 
 /* ledger — the "ledger" in fridge-ledger: banked sets as real, full-width ink
    tally marks (4 verticals + a diagonal 5th strike), not a 3px sliver hidden
@@ -390,7 +410,7 @@ input, textarea{-webkit-user-select:text; user-select:text}
    the row or overflowing the card. */
 .ledger{padding:18px 22px 0;position:relative}
 .l-rows{display:flex;flex-direction:column;gap:10px}
-.l-row{display:flex;flex-direction:column;gap:10px;background:var(--card);border:1px solid var(--hair);padding:11px 13px;
+.l-row{display:flex;flex-direction:column;gap:10px;background:rgba(var(--card-rgb),.78);border:1px solid var(--hair);padding:11px 13px;
   border-radius:var(--r-sm);box-shadow:var(--shadow-card);animation:rowIn .4s var(--ease-out) backwards}
 .l-row:nth-child(1){animation-delay:.02s}.l-row:nth-child(2){animation-delay:.07s}.l-row:nth-child(3){animation-delay:.12s}.l-row:nth-child(4){animation-delay:.17s}
 @keyframes rowIn{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
@@ -437,7 +457,7 @@ input, textarea{-webkit-user-select:text; user-select:text}
    corner chip. Each card gets a top pin + a slight rotation jitter so the
    whole screen reads as tacked to a board, not a flat settings list. */
 #crew-cards{display:flex;flex-direction:column;gap:18px;padding:14px 22px 0}
-.crew-card{background:var(--card);border:1px solid var(--hair);padding:18px;position:relative;
+.crew-card{background:rgba(var(--card-rgb),.78);border:1px solid var(--hair);padding:18px;position:relative;
   border-radius:var(--r-lg);box-shadow:var(--shadow-card);animation:rowIn .45s var(--ease-out) backwards}
 .crew-card:nth-child(odd){transform:rotate(-.6deg)}
 .crew-card:nth-child(even){transform:rotate(.6deg)}
@@ -462,7 +482,8 @@ input, textarea{-webkit-user-select:text; user-select:text}
 .crew-card .big{display:flex;align-items:baseline;gap:8px;margin-top:6px}
 .crew-card .big .n{font-family:Archivo,sans-serif;font-weight:800;font-size:44px;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
 .crew-card .big .of{font-size:13px;color:var(--muted);font-weight:600}
-.state-chip{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--on-accent);padding:3px 8px;margin-left:auto}
+.state-chip{font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500;font-size:9.5px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--on-accent);padding:3px 8px;margin-left:auto}
 .strip{display:flex;gap:6px;margin-top:14px}
 .strip .cell{flex:1;height:9px}
 .cc-postit{display:flex;justify-content:flex-end;margin-top:14px}
@@ -477,7 +498,7 @@ input, textarea{-webkit-user-select:text; user-select:text}
 #hist-month{font-weight:700;font-size:14px;min-width:96px;text-align:center}
 .hist-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:4px 22px}
 .hist-grid .dow{font-size:10px;font-weight:700;color:var(--muted);text-align:center;text-transform:uppercase}
-.hist-cell{aspect-ratio:1;background:var(--card);border:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;
+.hist-cell{aspect-ratio:1;background:rgba(var(--card-rgb),.78);border:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;
   border-radius:var(--r-sm);transition:transform .15s var(--ease-out),box-shadow .2s}
 .hist-cell:active{transform:scale(.9)}
 .hist-detail{border-radius:var(--r-lg);box-shadow:var(--shadow-card);animation:rowIn .35s var(--ease-out)}
@@ -485,7 +506,7 @@ input, textarea{-webkit-user-select:text; user-select:text}
 .hist-cell .st{width:8px;height:8px;border-radius:4px}
 .hist-cell.blank{visibility:hidden}
 .hist-cell.future{opacity:.4;cursor:default}
-.hist-detail{margin:12px 22px;padding:14px;background:var(--card);border:1px solid var(--hair)}
+.hist-detail{margin:12px 22px;padding:14px;background:rgba(var(--card-rgb),.78);border:1px solid var(--hair)}
 .hist-detail .dd{font-family:Archivo,sans-serif;font-weight:800;font-size:17px;margin-bottom:6px}
 .hist-detail .rows{font-size:13.5px;line-height:1.7}
 .hist-detail .excuse-quote{font-family:Caveat,cursive;font-size:20px;color:var(--postit-ink);background:var(--postit);display:inline-block;padding:6px 10px;transform:rotate(-1.5deg);margin-top:6px}
@@ -506,11 +527,16 @@ input, textarea{-webkit-user-select:text; user-select:text}
 .bg-met{background:var(--met)}.bg-rest{background:var(--rest)}.bg-excused{background:var(--excused)}.bg-missed{background:var(--missed)}.bg-pending{background:var(--pending)}
 
 /* settings */
-.set-card{margin:12px 22px 0;padding:16px;background:var(--card);border:1px solid var(--hair);border-radius:var(--r-lg);box-shadow:var(--shadow-card)}
+.set-card{margin:12px 22px 0;padding:16px;background:rgba(var(--card-rgb),.78);border:1px solid var(--hair);border-radius:var(--r-lg);box-shadow:var(--shadow-card)}
 .set-card .lbl{display:flex;justify-content:space-between;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;font-weight:600;color:var(--ink);margin:10px 0 0}
 .set-card input{width:130px;padding:9px;border:1px solid var(--hair);background:var(--card);font-family:Archivo,sans-serif;font-weight:700;font-size:15px;text-align:center;color:var(--ink)}
 .set-card input[type=date],#set-crewname,#set-name{font-family:"Instrument Sans",sans-serif;font-weight:600;text-align:left}
 .set-card .avatars,.set-card .color-dots{margin-top:12px}
+#affirm-list{width:100%;margin-top:10px;padding:11px;border:1px solid var(--hair);border-radius:var(--r-sm);
+  background:rgba(var(--card-rgb),.6);color:var(--ink);font-family:"Instrument Sans",sans-serif;
+  font-size:14px;line-height:1.55;resize:vertical}
+.affirm-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+#affirm-count.over{color:var(--missed);font-weight:700}
 /* set-profile-save/set-save are now icon discs, not width:100% block
    buttons — .set-action-row lays each one out beside its feedback hint
    (#set-profile-msg / #set-msg) instead of stacking hint below a full-width
@@ -706,8 +732,8 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 
 /* onboarding entrance choreography (animation only) */
 #onboarding .ob-inner>*{animation:fadeUp .55s var(--ease-out) backwards}
-#onboarding .ob-inner>*:nth-child(1){animation-delay:.05s}
-#onboarding .ob-inner>*:nth-child(2){animation-delay:.16s}
+#onboarding .ob-inner>*:nth-child(1){animation-delay:1.94s}
+#onboarding .ob-inner>*:nth-child(2){animation-delay:2.05s}
 #onboarding .ob-inner>*:nth-child(3){animation-delay:.27s}
 #onboarding .ob-inner>*:nth-child(4){animation-delay:.38s}
 #onboarding .ob-inner>*:nth-child(5){animation-delay:.49s}
@@ -728,15 +754,145 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 #excuse-modal{background:rgba(var(--shadow-rgb),.45)}
 #confirm-modal{background:rgba(var(--shadow-rgb),.45)}
 .ob-inner{width:100%;max-width:340px}
-/* Lift the launch composition off dead-centre — owner: "much empty space at the
-   top of the screen... keep the elements where they are as a group but move them
-   up". Padding on the CODE step (not margin on .ob-inner) so the lift is scoped
-   automatically: the step is display:none on the profile step, so its taller
-   content keeps the original centring. Applying it to .ob-inner instead pushed the
-   profile step's content past the overlay's top padding (measured innerTop 12 vs
-   24px padding). Padding, not margin, so it can't margin-collapse out. */
-#ob-step-code{padding-bottom:15vh}
-.ob-tag{font-size:15px;color:var(--muted);margin:10px 0 26px;line-height:1.45}
+
+/* ============ LAUNCH SCREEN — the Ascent lockup over the peak ============
+   Scoped entirely to #onboarding. Everything behind this door is Rope & Rung.
+   Column, not the .overlay centring: lockup at the head, the live step
+   optically centred (owner: "the code needs to sit centre of the screen"),
+   studio signature at the foot. flex:1 on .ob-inner does the centring, which
+   survives the step swapping between the short code field and the much taller
+   profile picker — an absolutely-positioned block would not. */
+#onboarding{--ob-title:clamp(54px,15vw,74px);
+  flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:7vh 24px calc(26px + env(safe-area-inset-bottom))}
+#onboarding .ob-inner{flex:none;margin-top:5vh;position:relative;z-index:2}
+/* the old 15vh lift is what the flex centring now does properly.
+   The code step's own vertical placement is set further down, against the
+   summit — see the #ob-step-code rule under the launch-screen block. */
+
+
+/* ---- the art: the route draws, and the painting arrives behind it ----
+   Sized in vh so the summit lands at 52vh on every phone regardless of width. */
+.ob-art{position:absolute;inset:0;z-index:0}
+
+.ob-peak{position:absolute;left:50%;bottom:-10vh;transform:translateX(-50%);
+  height:58vh;width:auto;aspect-ratio:900/805;z-index:1;pointer-events:none}
+.ob-peak-ink{position:absolute;inset:0;background:var(--peak-ink);
+  -webkit-mask:url("assets/peak.png") no-repeat center/contain;
+  mask:url("assets/peak.png") no-repeat center/contain;
+  animation:obPeakReveal 1400ms linear 200ms both}
+/* The reveal edge tracks the route's head: 16.9% when the line starts, 59.6%
+   when it tops out, then the far flank fills in behind it. */
+@keyframes obPeakReveal{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
+
+/* overflow:visible is load-bearing, and a stray closing brace above this rule
+   used to eat it. A stray closing brace at the top level is not discarded on
+   its own: the parser takes it as the start of the next rule's prelude, so it
+   and the .ob-trail selector merged into one invalid selector and this whole
+   declaration block was dropped. The svg still LOOKED right — its default
+   width:100% plus the viewBox aspect happen to land on the same box that
+   .ob-peak's aspect-ratio gives it — so the only symptom was the UA default
+   overflow:hidden coming back and slicing the summit lantern flat across its
+   top edge. Braces are deliberately spelled out rather than written literally
+   in this comment: a plain brace count is the obvious way to hunt the next
+   stray one, and comment braces are what make that count lie. */
+.ob-trail{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+/* the route, styled as a map track rather than a drawn line */
+/* Launch trail inverts against the peak, which is at FULL strength on that
+   screen — measured: ink holds 3.28:1 on the solid teal mountain and 15.5:1 on
+   the paper sky; teal holds 4.73:1 on the solid paper mountain and 3.29:1 on
+   the pine sky. Those are the only two palette colours that clear 3:1 on BOTH
+   the mountain and the sky in their own theme. --peak-ink was almost the same
+   value as the mountain it was drawn on, which is why it disappeared. */
+/* Bolder, and lifted off the painting with a drop shadow instead of a second
+   stroke underneath — the owner wanted the white casing line gone but the dash
+   to still pop. A shadow does that without adding a visible second line. */
+.ob-route{fill:none;stroke:var(--trail-launch);stroke-width:7.5;stroke-linecap:butt;
+  stroke-dasharray:26 17;stroke-linejoin:round;opacity:.95;
+  filter:drop-shadow(0 1.5px 2.5px rgba(0,0,0,.5));vector-effect:non-scaling-stroke;
+  /* The route no longer fades. It was disappearing a beat after it drew, which
+     made it impossible to see where the drawn line sits against the painted
+     ridge underneath — the exact thing that needs judging. It stays. */
+  }
+.ob-route-wipe{stroke-dasharray:100;stroke-dashoffset:100;
+  animation:obRouteDraw 3400ms cubic-bezier(.33,0,.24,1) 1650ms forwards}
+@keyframes obRouteDraw{to{stroke-dashoffset:0}}
+
+
+
+
+
+
+.ob-lockup{position:relative;z-index:2;text-align:center;flex:none}
+/* --ob-title lives on #onboarding, not here, because #ob-step-code's placement
+   has to do arithmetic on it — the title is the one thing above the code field
+   whose height moves with viewport WIDTH, so a step positioned against the
+   summit drifts on wide phones unless it accounts for this exact value. */
+.ob-ascent{font-family:"Bebas Neue",Archivo,sans-serif;font-weight:400;
+  font-size:var(--ob-title);line-height:.86;letter-spacing:.13em;
+  /* Bebas tracks from the RIGHT of each glyph, so heavy tracking pushes the
+     word left of centre; the matching indent puts it back. */
+  text-indent:.13em;text-transform:uppercase;color:var(--ink);margin:0}
+.ob-rule{width:132px;height:2px;background:var(--accent);opacity:.85;margin:16px auto 0;
+  transform-origin:50% 50%}
+.ob-product{font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500;
+  font-size:14px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--muted);margin:18px 0 0}
+
+.ob-studio{position:absolute;left:0;right:0;bottom:calc(22px + env(safe-area-inset-bottom));
+  z-index:2;text-align:center;pointer-events:none;
+  font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500;
+  font-size:10.5px;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--studio-ink);opacity:.72}
+
+/* Entrance: the range resolves, then the door. The peak rises last-but-slowest
+   so the type lands on a settling image rather than a static one. */
+@keyframes ruleDraw{from{opacity:0;transform:scaleX(0)}to{opacity:1;transform:scaleX(1)}}
+.ob-lockup>*{animation:fadeUp .64s var(--ease-out) both}
+.ob-ascent{animation-delay:1.50s}
+.ob-rule{animation:ruleDraw .7s var(--ease-out) 1.66s both}
+.ob-product{animation-delay:1.78s}
+.ob-tag{animation:fadeUp .64s var(--ease-out) 2.80s both}
+.ob-studio{animation:fadeUp .64s var(--ease-out) 2.02s both}
+/* The code step is placed AGAINST THE SUMMIT, not against the top of the
+   screen — owner: the enter disc should read like a flag planted on the peak,
+   standing about 2cm clear of it. Because the peak is sized in vh, a fixed
+   offset would only be right on one phone; so the padding is derived from
+   where the summit actually lands and every term is a measured quantity:
+
+     --summit      52.5vh, where .ob-peak's summit sits (58vh tall, bottom -10vh)
+     --flagpole    the owner's 2cm of daylight between disc and peak
+     --above       what stands above the step in flow: #onboarding's 7vh top
+                   padding + .ob-inner's 5vh margin, then the lockup. The
+                   lockup is NOT a constant: .ob-ascent is line-height .86 on
+                   --ob-title, which is 15vw between its clamps, so it grows
+                   with viewport width. 68px is the fixed remainder (rule,
+                   product line, tag). Treating the whole lockup as a constant
+                   put the disc 7px low at 430 wide while reading perfectly at
+                   375 — the error only shows up if you change WIDTH, which is
+                   why it survived the first check.
+     --disc-centre centre of the enter disc, measured down from the step's top
+
+   Verified at 375x667, 375x812, 390x844, 430x932: the disc lands within a
+   pixel of summit - 2cm on all four. max() so a very short viewport clamps to
+   0 rather than dragging the field up under the wordmark.
+
+   Padding on the CODE step, not margin on .ob-inner, so the placement is
+   scoped automatically: the step is display:none on the profile step, whose
+   much taller content keeps the original centring. Applying it to .ob-inner
+   instead pushed the profile step's content past the overlay's top padding
+   (measured innerTop 12 vs 24px padding). Padding, not margin, so it cannot
+   margin-collapse out. */
+#ob-step-code{
+  --summit:52.5vh;
+  --flagpole:2cm;
+  --above:calc(12vh + 68px + .86 * var(--ob-title));
+  --disc-centre:47px;
+  padding-top:max(0px,calc(var(--summit) - var(--flagpole)
+                           - var(--above) - var(--disc-centre)));
+  padding-bottom:0}
+
+
 /* long-form description, demoted from the top of .ob-inner (owner: keep the
    short .ob-tag up near the wordmark, make the longer copy "a little floating
    tab under all that") to a frosted "tab" card at the end of the column.
@@ -772,6 +928,10 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    the crew-code enter disc) — a horizontal row of two, matching .btn-disc's
    existing fill/halo recipe instead of a bespoke pill/outline treatment. */
 .ob-notfound-btns{display:flex;flex-direction:row;gap:24px;margin-top:14px;justify-content:center}
+/* solo fallback reuses the .ob-notfound panel shell, but its single action is
+   the only control that completes onboarding here — same reasoning as the
+   "Tie in" button, so it stays a plain full-width primary, not a disc. */
+#ob-solo .btn{margin-top:16px}
 .ob-nf-opt{display:flex;flex-direction:column;align-items:center;gap:7px}
 .ob-nf-cap{font-family:"Instrument Sans",sans-serif;font-weight:600;font-size:12.5px;color:var(--ink);text-align:center}
 /* translucent + blurred (not solid var(--card)) so the full-screen watermark
@@ -793,10 +953,10 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    block element would. */
 #ob-create-btn{margin:20px auto 0}
 /* crew-code row: input shrunk to a sane width for the actual code length
-   (6-char minimum, no maximum — see app.js's obEnterCode validator; the
-   placeholder example "SWEAT2026" is 9 chars, so this isn't hard-capped via
-   maxlength, just visually sized for a typical code with room to scroll a
-   longer one) with a circular icon button beside it instead of a full-width
+   (exactly CODE_LENGTH = 8, enforced both by maxlength and by app.js's
+   click handler; this comment previously said "6-char minimum, no maximum"
+   and cited a 9-char placeholder, neither of which is true any more)
+   with a circular icon button beside it instead of a full-width
    "Enter" bar underneath (owner: buttons should "mimic the shape of the
    dock" — .btn-disc reuses the exact fill/halo recipe from .tab.on in the
    bottom nav for visual consistency between the two "circular icon control"
@@ -805,9 +965,60 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    equal specificity via cascade order, not a specificity hack. */
 .ob-code-row{display:flex;gap:10px;align-items:center}
 .ob-code-row input[type=text]{width:auto;flex:1;max-width:210px}
+/* A placeholder must not be able to pass for a value. There was no
+   ::placeholder rule here at all, so the hint inherited the input's own
+   700-weight, 18px, .06em-tracked value face and sat there looking like a
+   code someone had already typed. Lighter, dimmer, and barely tracked, so it
+   reads as chrome; --muted carries its own light/dark values, so this holds
+   in both themes without a second rule. */
+/* The crew's name on the Crew tab. Sits directly under "The Crew" as the
+   subject of that heading, in the same mono/tracked register the launch
+   screen uses for "ROPE & RUNG" under "ASCENT" — deliberately the same
+   heading-and-subject relationship, not a new pattern. Not a control: no
+   border, no fill, nothing that reads as tappable, because renaming is an
+   admin job done in Settings. */
+.crew-name-plate{margin:-6px 0 18px;font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-weight:500;font-size:13px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--accent);overflow-wrap:anywhere}
+
+/* New-crew handover. The code is the hero here — it is the one thing the
+   founder has to carry out of this screen — so it gets the Bebas/tracked
+   treatment the wordmark uses, not the input face. Selectable on purpose:
+   copying it is the single most likely thing to do on this screen. */
+.ob-nc-lead{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--muted)}
+.ob-nc-code{margin:0 0 22px;font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-weight:500;font-size:29px;letter-spacing:.22em;color:var(--ink);
+  user-select:all;-webkit-user-select:all}
+
+/* The second path off the launch screen. Deliberately NOT a button-shaped
+   control: the disc beside the input is the screen's one action, and a second
+   filled control next to it would read as an equal choice when joining a
+   friend's crew is the main road. Underlined text so it still reads as
+   tappable, sized to the 44px minimum tap target via padding rather than
+   font-size. */
+.ob-alt{display:block;margin:9px 0 0;padding:15px 2px;background:none;border:0;
+  font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  /* Derived from currentColor, NOT from a surface variable: this sits over
+     the painting, so an underline mixed toward --card went dark-on-dark and
+     vanished. It needs the affordance — the mono-caps face is the same one
+     .ob-product wears directly above, which is not tappable at all. */
+  text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:color-mix(in srgb,currentColor 45%,transparent);
+  cursor:pointer}
+.ob-alt:hover,.ob-alt:focus-visible{color:var(--ink);text-decoration-color:var(--accent)}
+
+.ob-code-row input[type=text]::placeholder{
+  font-weight:500;font-size:16px;letter-spacing:.02em;
+  color:var(--muted);opacity:.85}
 .btn-disc{flex:none;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   background:var(--grad);color:var(--on-accent);border:none;cursor:pointer;padding:0;
-  box-shadow:0 6px 16px rgba(15,122,109,.32),0 0 0 2px #1BC79E,0 0 7px 1px rgba(27,199,158,.75);
+  /* Neon ring removed 2026-08-08 (owner). Was a 2px #1BC79E ring plus a
+     rgba(27,199,158,.75) halo, inherited from .tab.on in the dock — at disc
+     scale it read as a lit outline stuck around every control rather than as
+     emphasis, and it fought the launch screen's painted peak. The soft teal
+     drop shadow stays: it gives the disc its lift without drawing an edge. */
+  box-shadow:0 6px 16px rgba(15,122,109,.32);
   transition:transform .15s}
 .btn-disc svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
 .btn-disc:active{transform:scale(.92)}
@@ -856,27 +1067,72 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    above every other overlay/modal (z-index 95 vs 50/70) so it can never be
    trapped behind the confirm sheet or the dial hint; tap-anywhere or the
    auto-dismiss timer always closes it, so it can never trap the user. */
-#celebrate-overlay{z-index:95;background-color:rgba(8,16,13,.94);flex-direction:column;gap:20px;cursor:pointer;
-  /* the wordmark <use> inherits these: on the dark scrim the letters must be
-     paper-light and the separating halo scrim-dark, in BOTH themes — without
-     this the ink-filled type is invisible and only the glow shows (owner-
-     reported bug, 2026-07-24) */
-  --ink:#FAF3E8;--paper:#12211D}
-.celebrate-inner{position:relative;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;animation:celebrateIn .6s var(--ease-out)}
+#celebrate-overlay{z-index:95;background-color:var(--paper);flex-direction:column;gap:20px;cursor:pointer;
+  /* The --ink/--paper override that used to live here existed ONLY for the knot
+     wordmark's <use>, which needed light letters on a dark scrim. That wordmark
+     is gone from this overlay, and the override actively broke its replacement:
+     background:var(--paper) resolved to the local #12211D instead of the theme,
+     so the celebration was always dark and the light-mode mountain would have
+     rendered teal-on-near-black. The overlay now takes the real theme. */
+  color:var(--ink)}
+.celebrate-inner{position:relative;overflow:visible;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;animation:celebrateIn .6s var(--ease-out)}
 @keyframes celebrateIn{0%{opacity:0;transform:scale(.72) translateY(14px)}60%{opacity:1;transform:scale(1.06) translateY(-2px)}100%{opacity:1;transform:none}}
-.cfetti{position:absolute;top:50%;left:50%;width:9px;height:15px;border-radius:1.5px;background:var(--c,#C7F464);pointer-events:none;z-index:2;
-  animation:cfettiBurst 1.5s cubic-bezier(.2,.7,.3,1) var(--d,0s) forwards;opacity:0}
-@keyframes cfettiBurst{
-  0%{opacity:1;transform:translate(0,0) rotate(0) scale(.6)}
-  25%{opacity:1;transform:translate(calc(var(--tx) * .55),var(--peak)) rotate(calc(var(--rot) * .4)) scale(1)}
-  100%{opacity:0;transform:translate(var(--tx),var(--ty)) rotate(var(--rot)) scale(.9)}}
-.celebrate-flash{position:absolute;top:50%;left:50%;width:340px;height:340px;margin:-170px 0 0 -170px;border-radius:50%;opacity:0;animation-fill-mode:forwards;
-  background:radial-gradient(closest-side,rgba(199,244,100,.5),transparent 70%);pointer-events:none;
-  animation:celebrateFlash 1.1s var(--ease-out)}
-@keyframes celebrateFlash{0%{opacity:0;transform:scale(.6)}30%{opacity:1}100%{opacity:.55;transform:scale(1)}}
-.celebrate-wordmark{width:min(300px,74vw);height:auto;position:relative;filter:drop-shadow(0 0 26px rgba(199,244,100,.35))}
-.celebrate-line{font-family:Archivo,sans-serif;font-weight:800;font-size:20px;line-height:1.3;letter-spacing:-.01em;color:#FAF3E8;position:relative;max-width:300px}
-.celebrate-line::after{content:"";display:block;width:46px;height:3px;background:var(--volt);margin:12px auto 0;border-radius:2px}
+/* ---- celebration: the climb finishing ----
+   Reuses the launch screen's own vocabulary rather than inventing a second
+   celebratory language: the same peak asset masked the same way, the same
+   route path, the same obFlickerA/obFlickerB two-period lantern. The climber
+   runs the route once and the summit lights behind it. */
+.cel-peak{position:relative;width:min(300px,72vw);aspect-ratio:900/805;overflow:visible}
+.cel-peak-ink{position:absolute;inset:0;background:var(--peak-ink);opacity:.9;
+  -webkit-mask:url("assets/peak.png") no-repeat center/contain;
+  mask:url("assets/peak.png") no-repeat center/contain;
+  animation:celPeakIn .8s var(--ease-out) both}
+@keyframes celPeakIn{from{opacity:0;transform:translateY(10px)}to{opacity:.9;transform:none}}
+/* flare: a bright head leaving the summit and rising into the sky */
+.cel-flare{position:absolute;left:calc(59.56% - 4px);top:calc(.87% - 4px);
+  width:8px;height:8px;border-radius:50%;background:var(--trail-launch);
+  box-shadow:0 0 14px 4px var(--trail-launch);opacity:0;
+  animation:celFlare 700ms cubic-bezier(.2,.6,.35,1) 700ms forwards}
+/* Travels a LENGTH, not a percentage. A percentage translate resolves against
+   the element's own box, so -96% on an 8px flare moved it 7.7px — nowhere near
+   the sky. -150px is measured against the same number the burst is offset by,
+   so the burst goes off exactly where the flare runs out. */
+@keyframes celFlare{
+  0%{opacity:0;transform:translateY(0) scale(.5)}
+  18%{opacity:1;transform:translateY(-22px) scale(1)}
+  100%{opacity:0;transform:translateY(-150px) scale(.85)}}
+
+/* burst: it goes off where the flare ran out of climb */
+.cel-burst{position:absolute;left:59.56%;top:calc(.87% - 150px);width:0;height:0}
+.cel-spark{position:absolute;left:0;top:0;width:2px;height:26px;margin:-13px 0 0 -1px;
+  background:linear-gradient(to top,transparent,var(--trail-launch));
+  transform:rotate(var(--a)) translateY(0);transform-origin:50% 50%;opacity:0;
+  animation:celSpark 900ms cubic-bezier(.15,.7,.3,1) 1380ms forwards}
+@keyframes celSpark{
+  0%{opacity:0;transform:rotate(var(--a)) translateY(0) scaleY(.3)}
+  20%{opacity:1}
+  100%{opacity:0;transform:rotate(var(--a)) translateY(-64px) scaleY(1)}}
+.cel-ring{position:absolute;left:0;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;
+  border-radius:50%;border:2px solid var(--trail-launch);opacity:0;
+  animation:celRing 900ms cubic-bezier(.15,.7,.3,1) 1380ms forwards}
+@keyframes celRing{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(7)}}
+.cel-core-flash{position:absolute;left:0;top:0;width:10px;height:10px;margin:-5px 0 0 -5px;
+  border-radius:50%;background:var(--trail-launch);box-shadow:0 0 26px 10px var(--trail-launch);
+  opacity:0;animation:celFlash 620ms ease-out 1360ms forwards}
+@keyframes celFlash{0%{opacity:0;transform:scale(.4)}22%{opacity:1;transform:scale(1.4)}100%{opacity:0;transform:scale(2.2)}}
+
+.cel-glow,.cel-core{position:absolute;border-radius:50%;opacity:0}
+.cel-glow{left:calc(59.56% - 15px);top:calc(.87% - 15px);width:30px;height:30px;
+  background:var(--peak-ink);filter:blur(8px);
+  animation:celLightUp .6s ease-out 2.1s forwards,obFlickerA 3.1s ease-in-out 2.7s infinite}
+.cel-core{left:calc(59.56% - 3.5px);top:calc(.87% - 3.5px);width:7px;height:7px;
+  background:var(--peak-ink);
+  animation:celLightUp .6s ease-out 2.1s forwards,obFlickerB 2.3s ease-in-out 2.7s infinite}
+@keyframes celLightUp{to{opacity:1}}
+.celebrate-line{animation:fadeUp .6s var(--ease-out) 1.9s backwards;font-family:"Bebas Neue",Archivo,sans-serif;font-weight:400;font-size:30px;
+  line-height:1.05;letter-spacing:.09em;text-indent:.09em;text-transform:uppercase;
+  color:var(--ink);position:relative;max-width:320px}
+.celebrate-line::after{content:"";display:block;width:76px;height:2px;background:var(--accent);margin:14px auto 0;opacity:.85}
 
 /* council polish round (Expansionist QoL, 2026-07-20) */
 /* dial: volt discharge each full revolution */
@@ -953,7 +1209,7 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 .hv-btn:active{transform:scale(.97)}
 .hv-btn.on{color:var(--on-accent)}
 
-.ladder-wrap{margin:8px 22px 0;padding:16px 8px 12px;background:var(--card);border:1px solid var(--hair);
+.ladder-wrap{margin:8px 22px 0;padding:16px 8px 12px;background:rgba(var(--card-rgb),.78);border:1px solid var(--hair);
   border-radius:var(--r-lg);box-shadow:var(--shadow-card)}
 /* scrolls WITHIN the card (never the page) so a 30+ week challenge stays legible */
 .ladder-scroll{position:relative;max-height:min(58vh,480px);overflow-y:auto;overflow-x:hidden;
@@ -998,3 +1254,259 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 @keyframes ladderRungBuild{from{opacity:0;transform:translateY(10px) scaleX(.86)}to{opacity:1;transform:none}}
 .hist-anim .rung-row{animation:ladderRungBuild .42s var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 55ms)}
 .ladder-legend{margin-top:8px;padding:8px 4px 0}
+
+/* summit lantern — ignites as the marker tops out, then keeps flickering while
+   you sit on this screen typing a code */
+/* Ignites as the climber TOPS OUT, not on a fixed guess. The climb runs
+   1650ms + 3400ms = 5050ms, so the flame comes up at 4950ms and the two read
+   as one event. Retimed when the climb was slowed; if the climb timing moves
+   again, this must move with it. */
+.ob-summit-flame{opacity:0;animation:obFlameIn 900ms ease-out 4950ms forwards}
+@keyframes obFlameIn{to{opacity:1}}
+/* One ink, two densities: a soft blurred mass with a dense core inside it,
+   which is how the rest of this screen is painted. The old volt/#F5FFC8 pair
+   put the only foreign hue on the launch screen right at its focal point. */
+/* fill-opacity, not opacity: obFlickerA animates `opacity` frame by frame, so
+   a base opacity here would simply be overwritten. These compose instead. */
+.ob-flame-glow{fill:var(--peak-ink);filter:blur(9px);fill-opacity:.55;
+  transform-box:fill-box;transform-origin:center;
+  animation:obFlickerA 3.1s ease-in-out 5350ms infinite}
+.ob-flame-core{fill:var(--peak-ink);transform-box:fill-box;transform-origin:center;
+  animation:obFlickerB 2.3s ease-in-out 5350ms infinite}
+/* irregular steps on purpose: evenly spaced keyframes read as a pulse, not a flame */
+@keyframes obFlickerA{
+  0%{opacity:.80;transform:scale(1)}      9%{opacity:.52;transform:scale(.90)}
+  17%{opacity:.95;transform:scale(1.08)}  28%{opacity:.60;transform:scale(.95)}
+  41%{opacity:1;transform:scale(1.13)}    53%{opacity:.68;transform:scale(.97)}
+  66%{opacity:.88;transform:scale(1.05)}  78%{opacity:.55;transform:scale(.92)}
+  89%{opacity:.86;transform:scale(1.02)}  100%{opacity:.80;transform:scale(1)}
+}
+@keyframes obFlickerB{
+  0%{opacity:.9;transform:scale(1)}       13%{opacity:.7;transform:scale(.86)}
+  24%{opacity:1;transform:scale(1.1)}     38%{opacity:.75;transform:scale(.93)}
+  55%{opacity:.98;transform:scale(1.05)}  71%{opacity:.66;transform:scale(.88)}
+  86%{opacity:.94;transform:scale(1.03)}  100%{opacity:.9;transform:scale(1)}
+}
+
+/* Surfaces are translucent (--card at 78%). It was 62%, which let more of the
+   watermark through but capped how dense the mountain could be before --muted
+   text over it dropped under 4.5:1 AA. 78% buys ~2x the filled/unfilled step
+   (1.3:1 -> 1.9:1 light, 1.6:1 -> 2.4:1 dark) at the cost of a fainter
+   show-through. The mountain mostly sits in open space below the content
+   anyway, so the trade favours the mountain.
+   (--card at 78%) rather than solid so the peak reads
+   faintly through every tile. Alpha only, NO backdrop-filter: blur on this many
+   scrolling surfaces forces a continuous GPU repaint on mobile, which is the one
+   thing that would make the watermark expensive. The tab bar keeps its blur
+   because it is fixed and there is exactly one of it. */
+
+/* NUMERALS STAY ARCHIVO, deliberately. The tally counts up live while the dial
+   turns and the ledger/History columns align on digits; Archivo has
+   font-variant-numeric: tabular-nums, Bebas has no tabular figures at all, so
+   swapping them would make the number visibly jitter as it changes width. */
+
+/* ---- header: member avatar + plain wordmark ---- */
+.head-avatar{width:28px;height:28px;flex:none;display:block}
+/* There is no base .avatar rule in this stylesheet - every call site (home row,
+   crew corkboard) styles its own chip. The header chip therefore inherited no
+   border-radius at all and rendered as a bare square. */
+.head-avatar .avatar{width:28px;height:28px;border-radius:50%;overflow:hidden;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--grad);color:var(--on-accent)}
+.head-wordmark{font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500;
+  font-size:11px;letter-spacing:.20em;text-transform:uppercase;color:var(--muted);
+  white-space:nowrap}
+
+/* ---- the peak, carried through the app ----
+   Faint enough to sit under real content at every screen's density. Fixed, not
+   absolute, so it does not scroll with the page and never triggers a repaint.
+   --peak-fill (0%-100%, set from app.js in renderAll) is today's tally/target
+   as climbed height on the mountain. An element-level `opacity` can only ever
+   express ONE density for the whole shape, so the two densities (climbed vs.
+   unclimbed) live inside the background itself instead: a two-stop gradient,
+   filled colour up to --peak-fill and the original faint colour above it. The
+   mask (the ink-density painting) is unchanged and still does all the shaping
+   — the gradient just supplies what colour gets masked through at each height. */
+/* .app-peak and .app-lantern share one geometry rule so the masked mountain
+   and the unmasked lantern box can never drift apart - see the lantern
+   comment below for why they must stay two separate elements at all. */
+.app-peak,.app-lantern{position:fixed;left:50%;bottom:-6vh;transform:translateX(-50%);
+  height:46vh;width:auto;aspect-ratio:900/805;z-index:0;pointer-events:none}
+/* --peak-fill is REGISTERED, not just a bare custom property. Unregistered
+   custom properties are untyped tokens: a gradient built on one is not
+   reliably re-evaluated when only that token changes, which is why the fill
+   appeared to stick — removing a set left the painted gradient stale while the
+   lantern's class toggle (classes always invalidate) kept working, so the
+   beacon updated and the mountain did not. Registering it gives the property a
+   real <percentage> type, which both fixes invalidation and makes it genuinely
+   animatable — so the fill can now be transitioned directly instead of
+   transitioning `background`, which never worked: CSS cannot interpolate
+   between two linear-gradient() values at all. */
+/* inherits:TRUE, and that is load-bearing. --peak-fill/--peak-pct are set on
+   .app-peak and .app-lantern but READ by .al-track and .al-walker, which are
+   CHILDREN of .app-lantern. Registered with inherits:false they resolved to the
+   initial value in those children, so the track never drew and the walker sat
+   at base camp forever no matter how many pushups were banked. */
+@property --peak-fill{syntax:"<percentage>";inherits:true;initial-value:0%}
+/* Number twin of --peak-fill. stroke-dashoffset takes a <number> against
+   pathLength=100; a <percentage> there would resolve against the viewport
+   diagonal instead, which is not the same thing at all. Both are set from the
+   same maths in updatePeakFill() so they cannot disagree. */
+@property --peak-pct{syntax:"<number>";inherits:true;initial-value:0}
+.app-peak{
+  --peak-fill:0%;
+  /* Title-screen palette ONLY — no volt. Climbed ground is the same --peak-ink
+     as the launch screen's mountain, just denser. The earlier "too subtle"
+     problem was never the hue, it was the alpha: .32 filled against .085
+     unfilled is a 1.3:1 step, invisible. .55 against .13 is 1.87:1 and the
+     unfilled mass is now legible against the page too. Affordable because
+     tiles moved to .78 — see the tile rule for that trade. */
+  /* Flat faint wash now. The bottom-up gradient fill is gone: progress is
+     expressed by the mountain BLOOMING around the climbed trail instead of by
+     a horizontal edge sweeping up it, which read as a level rather than a
+     climb. See .al-bloom. */
+  background:rgba(var(--peak-rgb),.13);
+  transition:--peak-fill 1.4s cubic-bezier(.33,0,.24,1),--peak-pct 1.4s cubic-bezier(.33,0,.24,1);
+  -webkit-mask:url("assets/peak.png") no-repeat center/contain;
+  mask:url("assets/peak.png") no-repeat center/contain}
+/* .app-lantern paints right after .app-peak in the DOM at the same z-index,
+   so it sits just above the masked mountain without needing a mask or
+   background of its own - it is an empty positioning box only. */
+/* Dark filled alpha is .28, NOT .42. Measured: at .42 a tile sitting over the
+   FILLED part of the peak drops --muted text to 3.90:1, under the 4.5:1 AA
+   floor — a contrast regression that only appears once someone is near their
+   target, i.e. exactly when nobody is testing. .28 restores 4.6:1 with the
+   filled/unfilled step still clearly readable. Light mode measured at .32 and
+   passes (4.77:1), so it is left alone. */
+@media (prefers-color-scheme: dark){.app-peak{background:rgba(var(--peak-rgb),.16)}}
+/* every screen already sits in normal flow above it, but the tab bar and any
+   fixed furniture need to stay clear of it explicitly */
+/* The watermark needs the app's own surfaces above it, but z-index here is
+   load-bearing in a way that bit us: giving .app-head z-index:1 made it a
+   stacking context, so #menu-dropdown's z-index:70 could no longer escape it —
+   and #app>main, at the SAME z-index but later in the DOM, painted straight
+   over the open dropdown. Tapping "Admin" hit main instead and nothing
+   happened. The head must therefore outrank main, not tie with it. This rule
+   also used to name .tabbar, which silently overrode its own z-index:40 (later
+   rule, equal specificity) — dropped, the tab bar keeps its own. */
+#app>main{position:relative;z-index:1}
+.app-head{position:relative;z-index:3}
+
+/* summit lantern for the in-app watermark — same visual language as the
+   launch screen's .ob-summit-flame (glow + core, two independent flicker
+   periods so they drift out of phase), reused via the same obFlickerA/B
+   keyframes. This MUST stay a sibling of .app-peak (see .app-lantern above),
+   not a child or ::before/::after of it: a CSS `mask` flattens an element
+   and everything painted inside it - pseudo-elements included - into one
+   composited group, and applies the mask's own alpha to that whole group.
+   .app-peak's mask is near-transparent at the summit, so a glow hung on
+   .app-peak (as an earlier attempt did) got clipped down to a crescent by
+   the mask itself. DO NOT "tidy" these two <i> layers back into .app-peak's
+   ::before/::after - that reintroduces the exact bug this fixed. Position is
+   the same summit point the launch screen's flame sits at (x=536,y=7 of the
+   900x805 asset, i.e. ~59.56%/0.87% of the shared box), expressed as calc()
+   so the circle is centred on that point without touching `transform` —
+   obFlickerA/B animate `transform:scale(...)`, which would otherwise clobber
+   a transform-based centering trick. .is-lit toggles on .app-lantern (not
+   .app-peak) from the same place --peak-fill is set - the fill still lives
+   on .app-peak, only the lit state moved with the layer it belongs to. */
+.app-lantern.is-lit .al-glow,.app-lantern.is-lit .al-core{
+  position:absolute;border-radius:50%;pointer-events:none}
+.app-lantern.is-lit .al-glow{
+  left:calc(59.56% - 1.715vh);top:calc(.87% - 1.715vh);width:3.43vh;height:3.43vh;
+  background:rgba(var(--peak-rgb),.55);filter:blur(9px);
+  animation:obFlickerA 3.1s ease-in-out infinite}
+.app-lantern.is-lit .al-core{
+  left:calc(59.56% - .4vh);top:calc(.87% - .4vh);width:.8vh;height:.8vh;
+  background:rgba(var(--peak-rgb),1);
+  animation:obFlickerB 2.3s ease-in-out infinite}
+
+
+/* ---- the route, walked ----
+   The launch screen draws this same switchback once, as a film. In the app it
+   becomes the progress indicator: the track reveals and the walker climbs in
+   proportion to the day's tally, so 10 pushups is leaving base camp at the
+   trees and the summit is the target. Same path data as the launch screen's
+   .ob-route, so the two can never describe different mountains.
+   Lives in .app-lantern (unmasked) — inside .app-peak the mask would clip it,
+   the same trap the summit lantern hit. */
+.al-route{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.al-reveal{fill:none;stroke:#fff;stroke-width:26;stroke-linecap:round;
+  stroke-dasharray:100;stroke-dashoffset:calc(100 - var(--peak-pct));
+  transition:stroke-dashoffset 1.4s cubic-bezier(.33,0,.24,1)}
+/* DASHED, not dotted (owner). Butt caps and a real dash length give the
+   walking-route look; round caps on a near-zero dash gave dots, which read as
+   beads rather than a track. Dash lengths are in USER units, not pathLength
+   units, so every dash is the same physical length however uneven the route's
+   segments are — pathLength normalisation made them bunch at corners. Round
+   joins soften the switchback angles without moving a single vertex. The
+   Dash 26/17 against a 5px stroke, not 16/12 against 6.5 — at the tighter
+   ratio each dash was about as wide as it was long and read as a row of
+   blocks rather than a dashed line.
+   The reveal mask keeps pathLength=100 because progress must stay normalised.
+   Old note: the dash pattern is in
+   pathLength units (100 across the whole route) so the dot spacing stays even
+   however the SVG is scaled. Drawing is done by a MASK that wipes along the
+   same path, because stroke-dashoffset is already spoken for by the dots —
+   the same conflict the launch screen's track hit. */
+/* The trail is PAPER in both themes, not --peak-ink. In dark those are the
+   same colour, but in light --peak-ink is teal and the trail would disappear
+   into the mountain it is drawn on. A map route is always the light mark. */
+/* ONE stroke, no casing. A single colour across BOTH themes was impossible —
+   measured, the best any palette colour managed was 1.28:1 against the six
+   grounds this route crosses. A colour PER THEME solves it outright: ink never
+   drops below 7.01:1 in light, paper never below 4.15:1 in dark. The casing
+   and the halo rings existed only to work around the one-colour constraint and
+   are gone with it. */
+
+/* In-app trail wears the MEMBER'S avatar colour (--trail-me, set from JS), so
+   your climb is drawn in your own colour. It needs the casing back: measured,
+   every avatar colour bottoms out between 1.01:1 and 1.25:1 across the four
+   in-app grounds, because they are all mid-tones and the peak runs from nearly
+   invisible to nearly solid. The casing is the theme colour that DOES clear
+   3:1 everywhere, so the trail is always readable and the colour is still
+   theirs. Falls back to the theme colour when no member is loaded. */
+
+.al-track{filter:drop-shadow(0 1.5px 2.5px rgba(0,0,0,.42));fill:none;stroke:var(--trail-me,var(--trail-ink));stroke-width:7.5;stroke-linecap:butt;
+  stroke-dasharray:26 17;stroke-linejoin:round;mask:url(#alRouteReveal);
+  opacity:1;vector-effect:non-scaling-stroke}
+/* Positioned from JS with getPointAtLength() on the real path, NOT with CSS
+   offset-path. offset-path was resolving against something that changes when
+   the page is zoomed or the text scaled, so the marker drifted off the mountain
+   at anything other than 100% — reported on a 3x desktop zoom. getPointAtLength
+   returns a point in the SVG's own user space, which is the same space the path
+   is drawn in, so the two cannot disagree at any scale. */
+.al-walker{transition:transform 1.4s cubic-bezier(.33,0,.24,1)}
+/* The mountain lights UP AROUND the trail as it is climbed: one very wide,
+   heavily blurred stroke along the route, revealed by the same dashoffset as
+   the track and clipped to the mountain's own silhouette. Soft by construction
+   — no hard edge to tear, because there is no edge. */
+/* The bloom is revealed by a MASK whose own stroke is blurred, not by cutting
+   the bloom itself with stroke-dashoffset. Cutting it left a hard vertical edge
+   at the head of the climb — a dashoffset end is a straight chop, and no amount
+   of blurring the bloom softens the cut because the cut happens after the blur.
+   Blurring the MASK feathers the reveal instead, so the light fades out ahead of
+   the climber rather than stopping dead. */
+.al-bloom-rev{stroke-dasharray:100;stroke-dashoffset:calc(100 - var(--peak-pct));
+  transition:stroke-dashoffset 1.4s cubic-bezier(.33,0,.24,1)}
+.al-bloom{fill:none;stroke:var(--peak-ink);stroke-width:150;stroke-linecap:round;
+  stroke-linejoin:round;opacity:.5;filter:url(#alBloomBlur)}
+/* target met: the whole mountain flares, then settles brighter than it was */
+/* background-color, not the background SHORTHAND — the shorthand does not
+   interpolate, which is why no flare was visible at all. And it settles at .62,
+   not .34: at .34 the peak was still darker than the bloomed corridor, so the
+   mountain read as half-shrouded after the target was already met. */
+.app-peak.is-lit{animation:peakFlare 2.4s cubic-bezier(.2,.7,.3,1) both}
+@keyframes peakFlare{
+  0%{background-color:rgba(var(--peak-rgb),.13)}
+  22%{background-color:rgba(var(--peak-rgb),.92)}
+  100%{background-color:rgba(var(--peak-rgb),.62)}}
+/* once the summit is reached the corridor has done its job — the whole
+   mountain is lit, so the bloom fades out rather than staying as a bright
+   stripe across an already-bright peak */
+.app-lantern.is-lit .al-bloom{opacity:0;transition:opacity 1.2s ease-out .5s}
+
+/* a glow, not a ring: the beacon should read as light on the mountain */
+.alw-dot{fill:var(--trail-me,var(--trail-ink));filter:drop-shadow(0 0 6px var(--trail-me,var(--trail-ink)))}
+/* nothing to walk yet: hide the dot at zero so it does not squat at base camp */
+.app-lantern:not(.walking) .al-walker{opacity:0}

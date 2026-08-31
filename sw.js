@@ -1,9 +1,10 @@
 // Rope & Rung service worker — network-first with cache fallback.
 // Fresh when online, fully functional offline, instant shell loads.
-const CACHE = "pushpact-v2";
+const CACHE = "pushpact-v4";   // v4: painted Ascent icon set replaces the knot SVG
 const SHELL = [
   "./", "index.html", "style.css", "app.js", "logic.js", "data.js",
-  "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png",
+  "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png",
+  "assets/peak.png",
 ];
 
 self.addEventListener("install", (e) => {
