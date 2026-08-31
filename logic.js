@@ -764,7 +764,16 @@ export function achievementUnlocks({ sets, statuses, profiles, profileId, today,
   // all — they are absent rather than greyed out.
   const ranked = closedWeeks.map((wk) => {
     const arg = { sets: log, statuses: marks, profiles: crew, weekStartDay: wk.start, settings: s };
-    const perfect = wk.judged.length === 7 && wk.wdays.every((day) => byDay.get(day)?.state === "met");
+    // "Perfect" (owner, 2026-08-31): an entitled REST day is allowed, an excuse
+    // is not. A rest reduces what the week owed you, so taking one you were
+    // owed is not a blemish — writing an excuse is. Note this is deliberately
+    // NOT the same bar as Steadfast Grip, which the owner tightened on
+    // 2026-08-14 to refuse rest days outright; that one is "a whole week with
+    // no free passes at all", this one is "nothing went wrong".
+    const perfect = wk.judged.length === 7 && wk.wdays.every((day) => {
+      const st = byDay.get(day)?.state;
+      return st === "met" || st === "rest";
+    });
     return { ...wk, spoon: weeklySpoon(arg), eagle: weeklyEagle(arg), perfect };
   });
 
