@@ -588,8 +588,9 @@ export function achievementUnlocks({ sets, statuses, profiles, profileId, today,
   // one it counts toward. Without that guard an admin backfilling yesterday at
   // 3pm would collect Early Bird, Disco Fever and Midnight Ninja in one click.
   for (const d of info) {
-    const rows = daySets(mySets, d.day);
-    const opener = rows[0];
+    const opener = daySets(mySets, d.day)[0];
+    // The moment the day's target was first reached, if it ever was.
+    const cross = d.state === "met" ? firstCrossing(mySets, d.day, d.target) : null;
 
     if (opener && !isLate(opener.raw)) {
       const mins = localMinutes(opener.raw.logged_at);
@@ -599,17 +600,20 @@ export function achievementUnlocks({ sets, statuses, profiles, profileId, today,
         // whatever was on the ledger before midnight (owner-confirmed); no
         // condition on yesterday at all.
         if (mins >= 1 && mins <= 10) push("midnightNinja", opener.t);
-        // White Knuckle — nothing all day, then the ledger opens at 10:45pm.
-        // INTERPRETATION: the day also has to end met. The spec only says when
-        // you start, but "down to the wire" cannot mean logging five reps at
-        // 10:45 and stopping. Flagged for the owner.
-        if (mins >= 22 * 60 + 45 && d.state === "met") push("whiteKnuckle", opener.t);
+        // White Knuckle (owner-confirmed 2026-08-31) — nothing logged all day,
+        // the ledger opens after 10:45pm, and the whole target is finished
+        // before the day ends. Both halves are load-bearing: without the finish
+        // it rewards logging five reps at 10:45 and stopping, and requiring
+        // only that the day ends "met" is not the same thing, because a set
+        // backdated the next morning would quietly finish the day for you.
+        // Insisting the CROSSING is on the same calendar day is what closes
+        // that, and it also bounds the finish below midnight for free.
+        if (mins >= 22 * 60 + 45 && cross && !isLate(cross.raw)) push("whiteKnuckle", opener.t);
       }
     }
 
     if (d.state !== "met") continue;
 
-    const cross = firstCrossing(mySets, d.day, d.target);
     if (cross && !isLate(cross.raw)) {
       const mins = localMinutes(cross.raw.logged_at);
       if (mins !== null) {
