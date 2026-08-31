@@ -2,7 +2,7 @@
 
 import {
   toDayStr, addDays, parseDay, daysBetween, targetFor, dayTally, allTimeTotal, isLate,
-  canDeclareRest, restsUsedInWeek, dayState, streak, DEFAULT_SETTINGS,
+  canDeclareRest, restsUsedInWeek, dayState, streak, weekStart, weeklySpoon, DEFAULT_SETTINGS,
 } from "./logic.js";
 import { makeAdapter, CODE_LENGTH, looksLikeCode } from "./data.js";
 
@@ -161,6 +161,11 @@ const AVATAR_ART = {
   coffee: '<svg viewBox="0 0 48 48"><path class="aa-steamA" d="M18 20 Q15 16 18 12 Q21 8 18 4"/><path class="aa-steamB" d="M28 20 Q25 16 28 12 Q31 8 28 4"/><path d="M12 22 H32 L30 38 Q30 41 27 41 H17 Q14 41 14 38 Z"/><path d="M32 25 Q40 25 40 31 Q40 37 32 36"/></svg>',
   controller: '<svg viewBox="0 0 48 48"><rect x="7" y="15" width="34" height="19" rx="9.5"/><rect x="14.5" y="18.5" width="3" height="9" rx="1"/><rect x="11.5" y="21.5" width="9" height="3" rx="1"/><circle class="aa-ctrlBtn" cx="30" cy="19" r="2" fill="currentColor" stroke="none"/><circle cx="34" cy="23" r="2" fill="currentColor" stroke="none"/><circle cx="30" cy="27" r="2" fill="currentColor" stroke="none"/><circle cx="26" cy="23" r="2" fill="currentColor" stroke="none"/></svg>',
   headphones: '<svg viewBox="0 0 48 48"><path d="M10 26 A14 14 0 0 1 38 26"/><rect x="6" y="24" width="8" height="14" rx="3"/><rect x="34" y="24" width="8" height="14" rx="3"/><path class="aa-eqA" d="M20 34 V26"/><path class="aa-eqB" d="M24 36 V22"/><path class="aa-eqC" d="M28 34 V28"/></svg>',
+  // ---- the last rung: worn, never chosen ----
+  // Deliberately absent from AVATARS below: art lives here, the selectable
+  // list lives there, and keeping them separate is what makes the spoon
+  // impossible to pick on purpose. It stands on its handle and wobbles.
+  spoon: '<svg viewBox="0 0 48 48"><path d="M14 45 H34" opacity=".45"/><g class="aa-spoonWobble"><g transform="rotate(12 24 42)"><path d="M22 25 C14.5 20 14.5 4.5 24 4.5 C33.5 4.5 33.5 20 26 25 Z"/><path d="M19.5 15 Q24 20 28.5 15" opacity=".5"/><path d="M24 25 V42"/></g></g></svg>',
 };
 // avatar value format: "art" or "art.colour" (per-person icon colour).
 // Keys are stable (stored profiles reference them by name) — only the hex
@@ -191,6 +196,34 @@ function avatarHTML(a) {
 function avatarChip(a, extraClass = "") {
   const { color } = avatarParts(a);
   return `<span class="avatar${extraClass ? ` ${extraClass}` : ""}"${color ? ` style="background:${color}"` : ""}>${avatarHTML(a)}</span>`;
+}
+
+// ---------- the last rung ----------
+// Whoever came last in the week that just closed wears the wooden spoon for
+// the whole of the week that follows, and it reverts on its own at the next
+// reset. Nothing is stored — the holder is derived from the shared log every
+// render, so all devices agree without anything having to be written down.
+let spoonHolderId = null;
+// Recomputed ONCE per render (from renderAll), never per avatar: the ranking
+// walks every member's whole week, so calling it inside a map would redo that
+// work for each card.
+function refreshSpoonHolder() {
+  spoonHolderId = weeklySpoon({
+    sets: state.sets,
+    statuses: state.statuses,
+    profiles: state.profiles,
+    weekStartDay: addDays(weekStart(today()), -7), // the week just closed
+    settings: state.settings,
+  });
+}
+// The one place that decides which ART a member renders with. Their own colour
+// is preserved — only the art swaps — so the chip still reads as them. Not
+// used by the Settings/onboarding pickers on purpose: those show what a member
+// CHOSE, and the spoon is not a choice.
+function wornAvatar(p) {
+  if (!p || p.id !== spoonHolderId) return p?.avatar;
+  const colorKey = String(p.avatar || "").split(".")[1];
+  return colorKey ? `spoon.${colorKey}` : "spoon";
 }
 
 // haptics: navigator.vibrate is Android-only; iOS ≥17.4 gets the hidden
@@ -1021,7 +1054,7 @@ function renderCrew() {
     return `
       <div class="crew-card" data-pid="${p.id}">
         <div class="cc-top">
-          ${avatarChip(p.avatar, `cc-avatar st-${st.state}`)}
+          ${avatarChip(wornAvatar(p), `cc-avatar st-${st.state}`)}
           <div class="cc-info">
             <div class="cc-name-row">
               <span class="nm">${esc(p.name)}${p.id === state.me.id ? " (you)" : ""}</span>
@@ -1558,9 +1591,13 @@ function renderAll() {
   updatePeakFill();
   if (!state.me) return;
   updateHeadDate();
+  // one ranking pass for the whole render, before anything draws an avatar
+  refreshSpoonHolder();
   // the header badge is the signed-in member, so it has to follow profile edits
-  // and profile switches rather than being written once at boot
-  $("head-avatar").innerHTML = avatarChip(state.me.avatar);
+  // and profile switches rather than being written once at boot. It is also the
+  // only place the holder can see their OWN spoon — the corkboard filters them
+  // out — so it goes through wornAvatar() too.
+  $("head-avatar").innerHTML = avatarChip(wornAvatar(state.me));
   // admin entry point only makes sense where the admin cards actually live
   $("menu-wrap").classList.toggle("hidden", state.screen !== "settings");
   if (state.screen === "today") renderToday();

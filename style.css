@@ -756,6 +756,11 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 .av svg .aa-eqB{transform-box:view-box;transform-origin:24px 36px;animation:aaEq .55s ease-in-out infinite;animation-delay:-.2s}
 .av svg .aa-eqC{transform-box:view-box;transform-origin:28px 34px;animation:aaEq .85s ease-in-out infinite;animation-delay:-.4s}
 @keyframes aaEq{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.3)}}
+/* last rung: the spoon stands on its handle and rocks — slow and a bit sorry
+   for itself, deliberately the least energetic motion in the set. Pivot is the
+   handle's foot (24,42), so `.av svg .aa-x` per the convention above. */
+.av svg .aa-spoonWobble{transform-box:view-box;transform-origin:24px 42px;animation:aaSpoonWobble 3.6s ease-in-out infinite}
+@keyframes aaSpoonWobble{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5.5deg)}}
 .av-emoji{font-size:inherit}
 .avatars .av{color:var(--ink)}
 .avatars button.sel .av{color:var(--on-accent)}

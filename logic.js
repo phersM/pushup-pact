@@ -138,6 +138,110 @@ export function streak({ sets, statuses, profileId, today, settings = DEFAULT_SE
   return count;
 }
 
+// ---- the last rung: the weekly wooden spoon ----
+// Ranks the crew over a CLOSED week (weekStartDay is its Monday) and returns
+// the profile_id that came last, or null when there is nobody to rank.
+//
+// Nothing about this is stored. Every device derives the holder independently
+// from the same shared log, so the ordering below has to be a TOTAL one and
+// has to be reproducible: no Math.random, no Date.now, no reading of the local
+// clock, and no dependence on the order the caller happens to hand the arrays
+// over in. That is what the profile-id tie-break at the end of each chain is
+// for — without it two phones could legitimately disagree about who lost.
+export function weeklySpoon({ sets, statuses, profiles, weekStartDay, settings = DEFAULT_SETTINGS }) {
+  const s = { ...DEFAULT_SETTINGS, ...settings };
+  const crew = Array.isArray(profiles) ? profiles : [];
+  if (crew.length < 2) return null; // no last place in a crew of one
+  const log = Array.isArray(sets) ? sets : [];
+  const marks = Array.isArray(statuses) ? statuses : [];
+
+  // Only the days the challenge actually judges. A week that falls entirely
+  // before challenge_start has nothing in it to rank.
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(weekStartDay, i);
+    if (day >= s.challenge_start) days.push(day);
+  }
+  if (days.length === 0) return null;
+  // The week is closed, so nothing inside it can still be "pending": dayState
+  // is asked as of the Monday AFTER the week.
+  const after = addDays(weekStartDay, 7);
+
+  const rows = crew.map((p) => {
+    const id = String(p.id);
+    let shortfall = 0;
+    let totalBanked = 0;
+    // -Infinity, not null: it sorts as the earliest possible finish (a member
+    // who owed nothing all week is the LEAST deserving of the spoon) and it
+    // compares cleanly against itself under cmp.
+    let finish = -Infinity;
+    for (const day of days) {
+      const st = dayState({ sets: log, statuses: marks, profileId: id, day, today: after, settings: s }).state;
+      // A counting rest is the sanctioned free pass — capped at one a week by
+      // dayState itself — and it wipes that day's debt. An excuse is NOT a
+      // free pass: an excused day still owes its full target.
+      const required = st === "rest" ? 0 : targetFor(day, s);
+      const banked = dayTally(log, id, day);
+      totalBanked += banked;
+      if (required <= 0) continue;
+      if (banked < required) shortfall += required - banked;
+      else {
+        const at = crossingTime(log, id, day, required);
+        if (at !== null && at > finish) finish = at;
+      }
+    }
+    return { id, shortfall, totalBanked, finish };
+  });
+
+  // Anyone short of the week loses to everyone who wasn't; only if the whole
+  // crew hit it does the tie-break fall through to who finished last.
+  const anyShort = rows.some((r) => r.shortfall > 0);
+  const pool = anyShort ? rows.filter((r) => r.shortfall > 0) : rows;
+  // slice() so the caller's array is never reordered under them, and cmp()
+  // rather than `a - b` so -Infinity vs -Infinity can't become NaN and
+  // destabilise the sort.
+  const worst = pool.slice().sort((a, b) =>
+    anyShort
+      ? cmp(b.shortfall, a.shortfall) || cmp(a.totalBanked, b.totalBanked) || cmp(a.id, b.id)
+      : cmp(b.finish, a.finish) || cmp(a.id, b.id)
+  )[0];
+  return worst ? worst.id : null;
+}
+
+// Total-order comparator for strings and numbers alike. Never subtracts, so
+// infinities and equal values yield a clean 0 instead of NaN.
+function cmp(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// The moment a day's target was first reached: walk that day's sets
+// oldest-first and accumulate. Negative sets (wind-back is a real feature) are
+// added exactly as they come rather than clamped or skipped, so a wind-back
+// genuinely un-does reps and can push the crossing later. The running total
+// ends at dayTally, so a day that met its target always has a crossing.
+// Ties on logged_at fall through to set id then reps — content only, never
+// input order, so two devices sorting the same log agree.
+function crossingTime(sets, profileId, day, target) {
+  const rows = sets
+    .filter((x) => x.profile_id === profileId && x.day === day)
+    .map((x) => ({ t: stamp(x.logged_at), id: String(x.id ?? ""), reps: Number(x.reps) || 0 }))
+    .sort((a, b) => cmp(a.t, b.t) || cmp(a.id, b.id) || cmp(a.reps, b.reps));
+  let running = 0;
+  for (const r of rows) {
+    running += r.reps;
+    if (running >= target) return r.t;
+  }
+  return null;
+}
+
+// A missing or unparseable logged_at reads as the epoch rather than NaN —
+// an undated set is treated as the earliest thing that day, never as a
+// poisoned comparison.
+function stamp(loggedAt) {
+  const t = Date.parse(loggedAt ?? "");
+  return Number.isNaN(t) ? 0 : t;
+}
+
 // ---- celebrations ----
 // Decision only, no DOM/side effects — app.js turns the result into a queue
 // of things to show. Kept pure so the "both at once" collapse (see below) is
