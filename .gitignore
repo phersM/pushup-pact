@@ -20,3 +20,5 @@ config.js.parked
 PUBLISH.md
 # local safety copies
 *.bak-*
+# local editor/tooling config
+.claude/

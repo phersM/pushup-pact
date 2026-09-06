@@ -763,6 +763,11 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    Supersedes aa-spoonWobble, which styled the retired outlined spoon. The new
    mark is solid with the bowl at the BOTTOM and pivots on its ground contact,
    so the old 24px 42px origin would have swung it about its own middle. */
+/* the eagle settles on its feet — a weight shift, not a flap. Pivot is the
+   talon, so it rocks on the foot rather than about its own middle. */
+.av svg .aa-eagleSettle{transform-box:view-box;transform-origin:23px 42px;animation:aaEagleSettle 3.8s ease-in-out infinite}
+@keyframes aaEagleSettle{0%,100%{transform:rotate(-1.8deg)}50%{transform:rotate(1.8deg)}}
+
 .av svg .aa-spoonRock{transform-box:view-box;transform-origin:24px 44px;animation:aaSpoonRock 3.4s ease-in-out infinite}
 @keyframes aaSpoonRock{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5.5deg)}}
 
@@ -1576,3 +1581,25 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 .alw-dot{fill:var(--trail-me,var(--trail-ink));filter:drop-shadow(0 0 6px var(--trail-me,var(--trail-ink)))}
 /* nothing to walk yet: hide the dot at zero so it does not squat at base camp */
 .app-lantern:not(.walking) .al-walker{opacity:0}
+
+/* ---- admin: icon gallery ----
+   Discs are the corkboard avatar's own recipe (--grad ground, --on-accent ink)
+   at 88px and at 44px, so the gallery cannot flatter a mark the app exposes. */
+.ig-controls{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px}
+.ig-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink)}
+.ig-toggle input{width:auto;margin:0}
+/* two-up on a phone: the card's inner width is ~290px at 375, so the track has
+   to be under ~137px or every mark gets a row to itself and the gallery becomes
+   a mile of scrolling. */
+.icon-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));
+  gap:18px 10px;margin-top:16px}
+.ig-cell{margin:0;display:flex;flex-direction:column;align-items:center;gap:7px}
+.ig-discs{display:flex;align-items:center;gap:9px}
+.ig-disc{width:72px;height:72px;border-radius:50%;background:var(--grad);color:var(--on-accent);
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.ig-disc.ig-sm{width:44px;height:44px}
+.ig-cell figcaption{font-size:11px;line-height:1.3;color:var(--muted);text-align:center;
+  word-break:break-word}
+.ig-cell.is-ach figcaption{color:var(--accent);font-weight:600}
+/* freeze wins over every per-mark rule, which is how the house test is run */
+.icon-gallery.is-frozen *{animation:none!important}

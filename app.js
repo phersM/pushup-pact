@@ -185,6 +185,15 @@ const AVATAR_ART = {
   ironLung: '<svg viewBox="0 0 48 48"><path fill-rule="evenodd" fill="currentColor" stroke="none" d="M20.6 4.2 C20.6 2.8 22.1 2.2 24 2.2 C25.9 2.2 27.4 2.8 27.4 4.2 L27.4 16.5 L20.6 16.5 Z M21.5 6.4 L26.5 6.4 L26.5 7.9 L21.5 7.9 Z M21.5 10.1 L26.5 10.1 L26.5 11.6 L21.5 11.6 Z M21.5 13.8 L26.5 13.8 L26.5 15.3 L21.5 15.3 Z"/><g class="aa-lungBreath"><path fill="currentColor" stroke="none" d="M21.6 14 C18.6 13.6 15 15.4 12 19.2 C8.2 24 5.8 30.4 5.8 35.4 C5.8 39 6.8 41.8 9.4 41.8 L18.8 41.8 C20.4 41.8 21.6 40.6 21.6 39 Z"/><path fill="currentColor" stroke="none" d="M26.4 14 C29.4 13.6 33 15.4 36 19.2 C39.8 24 42.2 30.4 42.2 35.4 C42.2 39 41.2 41.8 38.6 41.8 L29.2 41.8 C27.6 41.8 26.4 40.6 26.4 39 Z"/></g></svg>',
   blueWater: '<svg viewBox="0 0 48 48"><path d="M26 4 V33" /><path fill="currentColor" stroke="none" d="M24.5 7 L24.5 32 L10 32 C13 22 18.5 13 24.5 7 Z"/><path fill="currentColor" stroke="none" d="M27.5 12 L27.5 31 L38.5 31 C36 23.5 32 17 27.5 12 Z"/><path fill="currentColor" stroke="none" d="M6 34.5 H42 L36 42.5 C34.5 43.8 33 44 31 44 L17 44 C15 44 13.5 43.8 12 42.5 Z"/><path d="M3 46 Q9 43.5 15 46 M18 46.5 Q24 44 30 46.5 M33 46 Q39 43.5 45 46" opacity=".45"/></svg>',
   basecampTavern: '<svg viewBox="0 0 48 48"><path fill-rule="evenodd" fill="currentColor" stroke="none" d="M14.5 8 H33.5 C36.5 8 38.5 15 38.5 24 C38.5 33 36.5 40 33.5 40 H14.5 C11.5 40 9.5 33 9.5 24 C9.5 15 11.5 8 14.5 8 Z M10.6 15.5 L37.4 15.5 L37.4 17.6 L10.6 17.6 Z M9.8 22.9 L38.2 22.9 L38.2 25 L9.8 25 Z M10.6 30.3 L37.4 30.3 L37.4 32.4 L10.6 32.4 Z"/><path d="M38.5 24 H44 V27" /><g class="aa-kegDrip"><circle cx="44" cy="30.5" r="1.8" fill="currentColor" stroke="none"/></g></svg>',
+  // Eagle Soaring. Fourteen rounds; the failures are worth keeping because they
+  // were all the same failure. A tall rounded body standing upright IS a penguin —
+  // that is a silhouette problem, and no beak, tail or shoulder tweak beats it.
+  // What finally worked: a bald-eagle beak built to actual anatomy (deep at the
+  // base, culmen fairly STRAIGHT, hook curling hard at the tip — curve the top edge
+  // and it becomes a duck bill), a domed skull with the eye set well back off the
+  // beak, and a CLENCHED talon. The perch bar is gone at the owner's call, which is
+  // why the talon has to grip nothing and still read as a foot.
+  eagleSoaring: '<svg viewBox="0 0 48 48"><g class="aa-eagleSettle"><path d="M13.5 36.5 C9.5 28 7.5 15 15 9 C17.8 5.8 22.4 5.2 26.2 7.4 L35.5 12.2 Q39 15.4 35.5 20.6 Q32.6 16.6 28 15.6 C29.6 22 28.6 30 25.4 35 L23 38.5"/><circle cx="20.2" cy="12.8" r="2" fill="currentColor" stroke="none"/><path d="M12.6 24 C15.7 27 17.2 31 17 35" opacity=".55"/><path d="M23 38.5 C27 39.2 28.5 41.4 26.9 43.4 C26.1 42.2 25.1 41.6 23.9 41.6 M23 38.5 C19 39.2 17.5 41.4 19.1 43.4 C19.9 42.2 20.9 41.6 22.1 41.6"/></g></svg>',
 };
 // avatar value format: "art" or "art.colour" (per-person icon colour).
 // Keys are stable (stored profiles reference them by name) — only the hex
@@ -1418,7 +1427,9 @@ function tryAdminCode() {
     $("sim-date-card").classList.remove("hidden");
     $("state-dump-card").classList.remove("hidden");
     $("affirm-card").classList.remove("hidden");
+    $("icon-gallery-card").classList.remove("hidden");
     renderAffirmEditor();
+    renderIconGallery();
     // renaming the crew joins the admin surface: text swaps to a live field
     $("set-crewname-row").classList.remove("hidden");
     $("set-crewname-read").classList.add("hidden");
@@ -1427,6 +1438,38 @@ function tryAdminCode() {
     $("admin-modal-err").classList.remove("hidden");
   }
 }
+// ---------- admin: icon gallery ----------
+// Every mark in AVATAR_ART on the app's own disc, at 88px and 44px, animations
+// live. Built from AVATAR_ART itself rather than a hand-kept list, so a mark
+// added to the set cannot be missing here.
+//
+// The keys the achievements engine can award are called out, because they are
+// the ones absent from AVATARS: they are WORN, never chosen, so the ordinary
+// avatar picker is not a place you can ever see them.
+const ACHIEVEMENT_ART_KEYS = new Set([
+  "spoon", "eagleSoaring", "earlyBird", "fourFigures",
+  "gripStrength", "ironLung", "blueWater", "basecampTavern",
+]);
+
+function renderIconGallery() {
+  const achOnly = $("ig-achievements").checked;
+  const keys = Object.keys(AVATAR_ART).filter((k) => !achOnly || ACHIEVEMENT_ART_KEYS.has(k));
+  $("icon-gallery").innerHTML = keys.map((k) => {
+    const ach = ACHIEVEMENT_ART_KEYS.has(k);
+    return `<figure class="ig-cell${ach ? " is-ach" : ""}">
+      <div class="ig-discs">
+        <span class="ig-disc">${avatarHTML(k)}</span>
+        <span class="ig-disc ig-sm">${avatarHTML(k)}</span>
+      </div>
+      <figcaption>${esc(k)}</figcaption>
+    </figure>`;
+  }).join("");
+  $("icon-gallery").classList.toggle("is-frozen", $("ig-freeze").checked);
+}
+$("ig-freeze").addEventListener("change", () =>
+  $("icon-gallery").classList.toggle("is-frozen", $("ig-freeze").checked));
+$("ig-achievements").addEventListener("change", renderIconGallery);
+
 // ---------- admin: celebration lines ----------
 function renderAffirmEditor() {
   $("affirm-list").value = affirmations().join("\n");
