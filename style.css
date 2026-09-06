@@ -763,10 +763,42 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    Supersedes aa-spoonWobble, which styled the retired outlined spoon. The new
    mark is solid with the bowl at the BOTTOM and pivots on its ground contact,
    so the old 24px 42px origin would have swung it about its own middle. */
+/* ---- achievement marks: motion (2026-09-06) ----
+   Six marks read as static in the gallery — three had no animation at all and
+   three were too faint to see. Every custom pivot below uses the
+   `.av svg .aa-x` form, NOT a bare `.aa-x{}`: the shipped rule
+   `.av svg [class^="aa-"]` sets transform-box:fill-box + origin:center at
+   (0,2,1) specificity and silently overrides a bare class, which is the trap
+   already documented against .aa-pump and the avatar fixes. */
+
+/* a rosette hangs from its pin, so it swings from the TOP, not its middle */
+.av svg .aa-rosetteSwing{transform-box:view-box;transform-origin:24px 5.3px;animation:aaRosetteSwing 3.4s ease-in-out infinite}
+@keyframes aaRosetteSwing{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+
+/* the climber swings from the BAR. Pivot on the bar, not the figure, or he
+   pinwheels about his own navel instead of hanging from his hands. */
+.av svg .aa-hangSwing{transform-box:view-box;transform-origin:24px 9px;animation:aaHangSwing 3.2s ease-in-out infinite}
+@keyframes aaHangSwing{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+
+/* the sloop heels; the waterline is OUTSIDE this group so the sea stays level */
+.av svg .aa-boatHeel{transform-box:view-box;transform-origin:24px 43px;animation:aaBoatHeel 4.2s ease-in-out infinite}
+@keyframes aaBoatHeel{0%,100%{transform:rotate(-5.5deg)}50%{transform:rotate(5.5deg)}}
+
+/* the bird cocks its head (owner, 2026-09-06). Pivot is the NECK, at the bottom
+   of the skull, so the beak swings and the crown stays put — pivoting at the
+   centre would slide the whole head sideways. The worm group is nested inside
+   this one, so the worm travels with the beak tip and keeps its own wiggle on
+   top; animating them as siblings detaches the worm from the beak. */
+.av svg .aa-birdPeck{transform-box:view-box;transform-origin:20px 35px;animation:aaBirdPeck 2.8s ease-in-out infinite}
+@keyframes aaBirdPeck{0%,100%{transform:rotate(-6deg)}45%{transform:rotate(5deg)}60%{transform:rotate(3deg)}}
+
+/* two staggered drips. One 1.8px dot was invisible at 44px. */
+.av svg .aa-kegDripB{transform-box:view-box;transform-origin:44px 30px;animation:aaKegDrip 2.6s ease-in infinite;animation-delay:-1.3s}
+
 /* the eagle settles on its feet — a weight shift, not a flap. Pivot is the
    talon, so it rocks on the foot rather than about its own middle. */
-.av svg .aa-eagleSettle{transform-box:view-box;transform-origin:23px 42px;animation:aaEagleSettle 3.8s ease-in-out infinite}
-@keyframes aaEagleSettle{0%,100%{transform:rotate(-1.8deg)}50%{transform:rotate(1.8deg)}}
+.av svg .aa-eagleSettle{transform-box:view-box;transform-origin:23px 42px;animation:aaEagleSettle 3.2s ease-in-out infinite}
+@keyframes aaEagleSettle{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
 
 .av svg .aa-spoonRock{transform-box:view-box;transform-origin:24px 44px;animation:aaSpoonRock 3.4s ease-in-out infinite}
 @keyframes aaSpoonRock{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5.5deg)}}
@@ -781,11 +813,11 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    inflates is wrong, and scaling it would shimmer the ribbed slots. Origin is
    the bronchial split, so the lobes fill from the stem the way lungs do. */
 .av svg .aa-lungBreath{transform-box:view-box;transform-origin:24px 16px;animation:aaLungBreath 4s ease-in-out infinite}
-@keyframes aaLungBreath{0%,100%{transform:scale(1)}45%{transform:scale(1.055,1.075)}}
+@keyframes aaLungBreath{0%,100%{transform:scale(1)}45%{transform:scale(1.09,1.12)}}
 
 
 .aa-kegDrip{animation:aaKegDrip 2.6s ease-in infinite}
-@keyframes aaKegDrip{0%{transform:translateY(-3px);opacity:0}25%{opacity:1}100%{transform:translateY(9px);opacity:0}}
+@keyframes aaKegDrip{0%{transform:translateY(-2px);opacity:0}20%{opacity:1}75%{opacity:1}100%{transform:translateY(13px);opacity:0}}
 .av-emoji{font-size:inherit}
 .avatars .av{color:var(--ink)}
 .avatars button.sel .av{color:var(--on-accent)}
@@ -1587,7 +1619,7 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    at 88px and at 44px, so the gallery cannot flatter a mark the app exposes. */
 .ig-controls{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px}
 .ig-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink)}
-.ig-toggle input{width:auto;margin:0}
+.ig-toggle input{width:auto;margin:0;accent-color:var(--accent)}
 /* two-up on a phone: the card's inner width is ~290px at 375, so the track has
    to be under ~137px or every mark gets a row to itself and the gallery becomes
    a mile of scrolling. */
