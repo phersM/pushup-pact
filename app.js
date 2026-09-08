@@ -196,6 +196,37 @@ const AVATAR_ART = {
   // beak, and a CLENCHED talon. The perch bar is gone at the owner's call, which is
   // why the talon has to grip nothing and still read as a foot.
   eagleSoaring: '<svg viewBox="0 0 48 48"><g class="aa-eagleSettle"><path d="M13.5 36.5 C9.5 28 7.5 15 15 9 C17.8 5.8 22.4 5.2 26.2 7.4 L35.5 12.2 Q39 15.4 35.5 20.6 Q32.6 16.6 28 15.6 C29.6 22 28.6 30 25.4 35 L23 38.5"/><circle cx="20.2" cy="12.8" r="2" fill="currentColor" stroke="none"/><path d="M12.6 24 C15.7 27 17.2 31 17 35" opacity=".55"/><path d="M23 38.5 C27 39.2 28.5 41.4 26.9 43.4 C26.1 42.2 25.1 41.6 23.9 41.6 M23 38.5 C19 39.2 17.5 41.4 19.1 43.4 C19.9 42.2 20.9 41.6 22.1 41.6"/></g></svg>',
+
+  // ---- the remaining achievement marks (2026-09-08) ----
+  // Drawn by a four-worker crew to design/achievement-icons/marks-crew/BRIEF.md,
+  // then reviewed on the real substrate. Three were redrawn by LEAD after that
+  // review and the reasons are in e-lead-redraws.js: `summit` collided with the
+  // shipped `star` avatar, which would have made an EARNED mark identical to one
+  // anybody can simply pick; `midnightNinja` rendered as a pinwheel and was a read
+  // of the achievement's NAME rather than its rule; `firstRung` read as a bench.
+  // Like every other achievement mark these are absent from AVATARS: worn, not chosen.
+  discoFever: '<svg viewBox="0 0 48 48"><g class="aa-moonDrift"><path fill-rule="evenodd" fill="currentColor" stroke="none" d="M42 25.6 A18 18 0 1 1 22.4 6 A14 14 0 0 0 42 25.6 Z M25.5 19.2 A2 2 0 1 0 25.5 23.2 A2 2 0 1 0 25.5 19.2 Z M32 19.5 Q34.6 19.5 34.6 21.5 Q32 21.5 32 19.5 Z M25 27.5 Q29 30.5 33.5 27.7 Q29.5 33 25 27.5 Z"/></g><path d="M10 10 L11 12.5 L13.5 13.5 L11 14.5 L10 17 L9 14.5 L6.5 13.5 L9 12.5 Z" fill="currentColor" stroke="none" opacity=".5"/><circle cx="8" cy="34" r="1.5" fill="currentColor" stroke="none" opacity=".45"/></svg>',
+  midnightNinja: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="17"/><path d="M24 5.5 V9 M42.5 24 H39 M24 42.5 V39 M5.5 24 H9" opacity=".55"/><g class="aa-midnightHands"><path d="M24 24 V11.5"/><path d="M24 24 V13.5"/></g><circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/></svg>',
+  whiteKnuckle: '<svg viewBox="0 0 48 48"><rect x="14" y="6" width="20" height="4" rx="2" fill="currentColor" stroke="none"/><rect x="14" y="38" width="20" height="4" rx="2" fill="currentColor" stroke="none"/><path d="M16 10 Q16 20 24 24 Q16 28 16 38 M32 10 Q32 20 24 24 Q32 28 32 38" opacity=".5"/><path d="M18 36 Q18 28 24 26 Q30 28 30 36 Z" fill="currentColor" stroke="none"/><path d="M21.5 20 L26.5 20 L24 23 Z" fill="currentColor" stroke="none"/><g class="aa-grainDrop"><circle cx="24" cy="25" r="1.6" fill="currentColor" stroke="none"/></g></svg>',
+  firstRung: '<svg viewBox="0 0 48 48"><path d="M15 2 V38 M33 2 V38" opacity=".45"/><g class="aa-rungSet"><rect x="13" y="27.5" width="22" height="5" rx="2.5" fill="currentColor" stroke="none"/></g><path d="M10 42 H38" opacity=".5"/><circle cx="15" cy="38" r="2.2" fill="currentColor" stroke="none"/><circle cx="33" cy="38" r="2.2" fill="currentColor" stroke="none"/></svg>',
+  fullLedger: '<svg viewBox="0 0 48 48"><rect x="11" y="6" width="26" height="36" rx="2"/><path d="M14 6 V42" opacity=".5"/><path d="M18 33 V22 M22 33 V22 M26 33 V22 M30 33 V22"/><path d="M16 32 L32 21"/><g class="aa-ledgerFlutter"><path d="M29 6 L34 6 L34 15 L31.5 12.3 L29 15 Z" fill="currentColor" stroke="none"/></g></svg>',
+  steadfastGrip: '<svg viewBox="0 0 48 48"><rect x="6" y="14" width="22" height="11" rx="5.5" transform="rotate(-38 17 19.5)"/><g class="aa-linkLock"><rect x="20" y="23" width="22" height="11" rx="5.5" transform="rotate(-38 31 28.5)"/></g></svg>',
+  keptClimbing: '<svg viewBox="0 0 48 48"><path d="M10 42 L16 6"/><path d="M38 42 L32 6"/><path d="M11.3 34 H36.7"/><path d="M12.7 26 H35.3"/><path d="M14 18 H34"/><g class="aa-stepPulse"><path d="M15.3 10 H32.7"/></g></svg>',
+  firstPin: '<svg viewBox="0 0 48 48"><circle cx="24" cy="9" r="2.8" fill="currentColor" stroke="none"/><g class="aa-noteSwing"><g transform="rotate(-6 24 25)"><path d="M12 14 Q12 12 14 12 H30 L36 18 V37 Q36 39 34 39 H14 Q12 39 12 37 Z"/><path d="M30 12.5 L34.5 17"/><path d="M16 20 H30"/><path d="M16 26 H24"/><path d="M16 32 H31"/><path d="M13 38 Q10 41.5 14 42.5" opacity=".5"/></g></g></svg>',
+  storyteller: '<svg viewBox="0 0 48 48"><path d="M8 14 Q8 6 16 6 H26" opacity=".5"/><path d="M10 45 H34" opacity=".45"/><g class="aa-bubbleNod"><path fill-rule="evenodd" fill="currentColor" stroke="none" d="M14 8 H34 Q38 8 38 12 V26 Q38 30 34 30 H20 L15 39 L17 30 H14 Q10 30 10 26 V12 Q10 8 14 8 Z M13.3 19 a1.7 1.7 0 1 0 3.4 0 a1.7 1.7 0 1 0 -3.4 0 Z M17.8 19 a1.7 1.7 0 1 0 3.4 0 a1.7 1.7 0 1 0 -3.4 0 Z M22.3 19 a1.7 1.7 0 1 0 3.4 0 a1.7 1.7 0 1 0 -3.4 0 Z M26.8 19 a1.7 1.7 0 1 0 3.4 0 a1.7 1.7 0 1 0 -3.4 0 Z M31.3 19 a1.7 1.7 0 1 0 3.4 0 a1.7 1.7 0 1 0 -3.4 0 Z"/><circle cx="11" cy="44" r="1.3" fill="currentColor" stroke="none" opacity=".4"/><path d="M36 5 L39 2" opacity=".5"/><path d="M40 8 L44 6" opacity=".5"/></g></svg>',
+  lostWilderness: '<svg viewBox="0 0 48 48"><path d="M26 44 L22 24 L17 5"/><path d="M16 45 H21 M31 45 H36" opacity=".5"/><path d="M20 33 L24 35" opacity=".5"/><circle cx="20" cy="16" r="1.6" fill="currentColor" stroke="none"/><g class="aa-signSwing"><g transform="rotate(-10 20 16)"><path d="M20 11 H38 L44 16 L38 21 H20 Z" fill="currentColor" stroke="none"/></g></g></svg>',
+  itchyFingers: '<svg viewBox="0 0 48 48"><ellipse cx="24" cy="36" rx="7" ry="5.5" fill="currentColor" stroke="none"/><ellipse cx="15" cy="20" rx="2.6" ry="9" fill="currentColor" stroke="none"/><ellipse cx="21" cy="13" rx="2.8" ry="11" fill="currentColor" stroke="none"/><ellipse cx="27.5" cy="14" rx="2.8" ry="10.5" fill="currentColor" stroke="none"/><ellipse cx="10" cy="33" rx="4.5" ry="3" fill="currentColor" stroke="none" transform="rotate(-40 10 33)"/><g class="aa-fingerTwitch"><ellipse cx="33.5" cy="21" rx="2.4" ry="8" fill="currentColor" stroke="none"/><path d="M31 6 Q33 3 35 6 Q37 9 39 6"/></g></svg>',
+  moneyBags: '<svg viewBox="0 0 48 48"><ellipse cx="24" cy="45.5" rx="13" ry="2" opacity=".5"/><path fill-rule="evenodd" fill="currentColor" stroke="none" d="M24 12 C20 12 17.5 14.3 17.5 17.3 C13 19.6 9 26.6 9 33.6 C9 39.8 15 44 24 44 C33 44 39 39.8 39 33.6 C39 26.6 35 19.6 30.5 17.3 C30.5 14.3 28 12 24 12 Z M20 17.4 H28 V19 H20 Z"/><g class="aa-coinPop"><ellipse cx="19" cy="12.8" rx="3.8" ry="3.1" fill="currentColor" stroke="none" transform="rotate(-18 19 12.8)"/><ellipse cx="40" cy="37" rx="4.3" ry="3.5" fill="currentColor" stroke="none"/><ellipse cx="42" cy="32.5" rx="4.3" ry="3.5" fill="currentColor" stroke="none"/><ellipse cx="40.3" cy="28" rx="4.3" ry="3.5" fill="currentColor" stroke="none"/></g></svg>',
+  dynamite: '<svg viewBox="0 0 48 48"><path opacity=".45" d="M15 43 H33"/><path fill-rule="evenodd" fill="currentColor" stroke="none" d="M22 15 H26 A3 3 0 0 1 29 18 V37 A3 3 0 0 1 26 40 H22 A3 3 0 0 1 19 37 V18 A3 3 0 0 1 22 15 Z M20.5 22 H27.5 V23.6 H20.5 Z M20.5 30 H27.5 V31.6 H20.5 Z"/><path d="M24 15 Q18 11 22 9"/><g class="aa-fuseSpark"><path fill="currentColor" stroke="none" d="M26 1 L27.3 4.7 L31 6 L27.3 7.3 L26 11 L24.7 7.3 L21 6 L24.7 4.7 Z"/></g><circle cx="36" cy="13" r="1.3" fill="currentColor" stroke="none"/><path d="M33.3 10.3 L35.2 12.2"/></svg>',
+  summit: '<svg viewBox="0 0 48 48"><path d="M7 43 H41" opacity=".5"/><path fill="currentColor" stroke="none" d="M9 42.5 C9 39 13.5 36.5 24 36.5 C34.5 36.5 39 39 39 42.5 Z"/><path fill="currentColor" stroke="none" d="M12.5 36 L34 35 L32.5 29.5 L14.5 30.5 Z"/><path fill="currentColor" stroke="none" d="M16 29.5 L31 28.5 L29 23.5 L17.5 24.5 Z"/><path fill="currentColor" stroke="none" d="M18.5 24 L28.5 23 L27 18 L20 18.5 Z"/><g class="aa-cairnTop"><path fill="currentColor" stroke="none" d="M20.5 17.5 L26.5 17 L25 12.5 L21.5 13 Z"/></g></svg>',
+  spoonless: '<svg viewBox="0 0 48 48"><path opacity=".45" d="M14 44 H34"/><path fill-rule="evenodd" fill="currentColor" stroke="none" d="M22.7 6.5 C22.7 5.5 23.3 5 24 5 C24.7 5 25.3 5.5 25.3 6.5 L25 17.5 C28.2 18.6 29.8 21.6 29.8 25.2 C29.8 29.5 27.3 32.5 24 32.5 C20.7 32.5 18.2 29.5 18.2 25.2 C18.2 21.6 19.8 18.6 23 17.5 Z M20.6 23.8 C21.7 26.3 26.3 26.3 27.4 23.8 C26.3 25.4 21.7 25.4 20.6 23.8 Z"/><circle cx="24" cy="20" r="17"/><path d="M12 8 L36 32"/><g class="aa-motesDrift"><circle cx="16" cy="41.3" r="1.3" fill="currentColor" stroke="none"/><circle cx="32.5" cy="42" r="1.1" fill="currentColor" stroke="none"/></g></svg>',
+  // GOAT. The v2 head-only drawing, shipped so the rarest achievement in the
+  // app is not the one with no mark. STILL THE OPEN QUESTION from 2026-08-31:
+  // the owner's own note was "a goat should just be the head", but the
+  // reference links they later sent were all full-body side-on goats, which is
+  // the construction v2-house-rules refuses. Swapping this is one line if the
+  // answer turns out to be the body.
+  goat: '<svg viewBox="0 0 48 48"><ellipse cx="10.5" cy="23.5" rx="5.6" ry="2.9" transform="rotate(22 10.5 23.5)" fill="currentColor" stroke="none"/><ellipse cx="37.5" cy="23.5" rx="5.6" ry="2.9" transform="rotate(-22 37.5 23.5)" fill="currentColor" stroke="none"/><path d="M18 11.5 C12 5 5 6.5 3 13.5"/><path d="M30 11.5 C36 5 43 6.5 45 13.5"/><path d="M13.5 22 C13.5 13.5 18 9.5 24 9.5 C30 9.5 34.5 13.5 34.5 22 L30.5 32 C30 35.5 26.5 37.5 24 37.5 C21.5 37.5 18 35.5 17.5 32 Z"/><circle cx="19" cy="21.5" r="2.1" fill="currentColor" stroke="none"/><circle cx="29" cy="21.5" r="2.1" fill="currentColor" stroke="none"/><path d="M21.8 30.5 H26.2" opacity=".55"/><g class="aa-goatBeard"><path d="M20.5 36 C19.5 40.5 21.5 42.5 24 45.5 C26.5 42.5 28.5 40.5 27.5 36"/></g></svg>',
 };
 // avatar value format: "art" or "art.colour" (per-person icon colour).
 // Keys are stable (stored profiles reference them by name) — only the hex
@@ -1601,10 +1632,12 @@ $("unlock-dismiss").addEventListener("click", () => $("unlock-panel").classList.
 // The keys the achievements engine can award are called out, because they are
 // the ones absent from AVATARS: they are WORN, never chosen, so the ordinary
 // avatar picker is not a place you can ever see them.
-const ACHIEVEMENT_ART_KEYS = new Set([
-  "spoon", "eagleSoaring", "earlyBird", "fourFigures",
-  "gripStrength", "ironLung", "blueWater", "basecampTavern",
-]);
+// DERIVED, not listed. A hardcoded set went stale the moment the crew drew
+// fifteen more marks — the gallery claimed eight achievements when the app had
+// twenty-four. Reading it off ACHIEVEMENTS means it cannot drift again.
+const ACHIEVEMENT_ART_KEYS = new Set(
+  ACHIEVEMENTS.map((a) => achievementArt(a.key)).filter(Boolean)
+);
 
 function renderIconGallery() {
   const achOnly = $("ig-achievements").checked;

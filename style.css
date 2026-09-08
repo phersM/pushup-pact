@@ -806,8 +806,6 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 .av svg .aa-wormWiggle{transform-box:view-box;transform-origin:44px 25px;animation:aaWormWiggle 1.1s ease-in-out infinite}
 @keyframes aaWormWiggle{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
 
-.aa-eagleBank{animation:aaEagleBank 2.6s ease-in-out infinite}
-@keyframes aaEagleBank{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(4deg)}}
 
 /* the breath (owner, 2026-08-31). Only the LOBES scale — a trachea that
    inflates is wrong, and scaling it would shimmer the ribbed slots. Origin is
@@ -1677,3 +1675,79 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 #set-avatars button.is-earned{position:relative}
 #set-avatars button.is-earned::after{content:"";position:absolute;inset:-3px;border-radius:50%;
   border:1.5px dotted var(--volt);pointer-events:none}
+
+
+/* ---- the remaining achievement marks: motion (2026-09-08) ----
+   One moving part each. Custom pivots use the `.av svg .aa-x` form; the bare
+   form is used only where the inherited centre origin is genuinely wanted
+   (pure translate / scale / opacity), which is how the shipped set does it. */
+.av svg .aa-moonDrift { animation: aa-moonDrift 2.6s ease-in-out infinite; }
+@keyframes aa-moonDrift {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+
+.av svg .aa-grainDrop { animation: aa-grainDrop 1.3s linear infinite; }
+@keyframes aa-grainDrop {
+  0% { transform: translateY(0); }
+  70% { transform: translateY(4px); }
+  100% { transform: translateY(0); }
+}
+
+
+/* firstRung: the new rung settles into place — a small press, not a spring. */
+
+/* fullLedger: the ribbon is pinned at the top edge (31.5,6), not its own
+   centre — needs the .av svg .aa-NAME form or it spins about its own middle. */
+.av svg .aa-ledgerFlutter{transform-box:view-box;transform-origin:31.5px 6px;animation:aaLedgerFlutter 1.1s ease-in-out infinite}
+@keyframes aaLedgerFlutter{0%,100%{transform:rotate(-22deg)}50%{transform:rotate(22deg)}}
+
+/* steadfastGrip: the newest link snaps in and settles — scale is about its
+   own bounding-box centre, which the default fill-box origin already gives. */
+.aa-linkLock{animation:aaLinkLock 2.6s ease-in-out infinite}
+@keyframes aaLinkLock{0%,55%,100%{transform:scale(1)}70%{transform:scale(1.1)}}
+
+/* keptClimbing: the top rung reaches — still going, not finished. */
+.aa-stepPulse{animation:aaStepPulse 1.3s ease-in-out infinite}
+@keyframes aaStepPulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.8px)}}
+
+
+.av svg .aa-noteSwing{transform-box:view-box;transform-origin:24px 9px;animation:aaNoteSwing 3.6s ease-in-out infinite}
+@keyframes aaNoteSwing{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.av svg .aa-bubbleNod{transform-box:view-box;transform-origin:15px 39px;animation:aaBubbleNod 3.2s ease-in-out infinite}
+@keyframes aaBubbleNod{0%,100%{transform:rotate(-2.6deg)}50%{transform:rotate(2.6deg)}}
+.av svg .aa-signSwing{transform-box:view-box;transform-origin:20px 16px;animation:aaSignSwing 3.4s ease-in-out infinite}
+@keyframes aaSignSwing{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+.av svg .aa-fingerTwitch{transform-box:view-box;transform-origin:32px 28px;animation:aaFingerTwitch 2.6s ease-in-out infinite}
+@keyframes aaFingerTwitch{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+
+
+.aa-coinPop{animation:aaCoinPop 2.1s ease-in-out infinite}
+@keyframes aaCoinPop{50%{transform:translateY(-3px)}}
+
+.aa-fuseSpark{animation:aaFuseSpark .9s ease-in-out infinite}
+@keyframes aaFuseSpark{50%{transform:translateY(-2.4px) scale(1.15)}}
+
+
+.aa-motesDrift{animation:aaMotesDrift 2.4s ease-in-out infinite}
+@keyframes aaMotesDrift{50%{transform:translate(2px,-2.4px);opacity:.35}}
+
+
+/* the top stone settles — a cairn is stones balanced, so the smallest one on
+   top is the only thing that would ever move */
+.av svg .aa-cairnTop{transform-box:view-box;transform-origin:24px 14.6px;animation:aaCairnTop 3.4s ease-in-out infinite}
+@keyframes aaCairnTop{0%,100%{transform:rotate(-3.5deg)}50%{transform:rotate(3.5deg)}}
+
+/* both hands sit at twelve and tick together, so the clock reads midnight even
+   while it moves — pivot is the spindle, which needs the .av svg form */
+.av svg .aa-midnightHands{transform-box:view-box;transform-origin:24px 24px;animation:aaMidnightHands 2.4s ease-in-out infinite}
+@keyframes aaMidnightHands{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+
+/* the first rung takes the weight */
+.aa-rungSet{animation:aaRungSet 2.6s ease-in-out infinite}
+@keyframes aaRungSet{0%,100%{transform:translateY(0)}50%{transform:translateY(1.6px)}}
+
+/* the goat's beard — from v2-icons.js, shipped with the head-only goat */
+.av svg .aa-goatBeard{transform-box:view-box;transform-origin:24px 36px;animation:aaGoatBeard 3.2s ease-in-out infinite}
+@keyframes aaGoatBeard{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
