@@ -1635,3 +1635,45 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 .ig-cell.is-ach figcaption{color:var(--accent);font-weight:600}
 /* freeze wins over every per-mark rule, which is how the house test is run */
 .icon-gallery.is-frozen *{animation:none!important}
+
+
+/* ---- the unlock panel (achievements, spec rule 3) ----
+   Deliberately NOT the celebration overlay. That one is a wordless moment for
+   a thing you already know you did; this one has to be readable, because its
+   entire job is telling you what you earned and why — the rules are never
+   announced anywhere else. */
+.unlock-card{width:min(340px,88vw);background:var(--card);border:1px solid var(--hair);
+  border-radius:var(--r-lg);box-shadow:var(--shadow-card);padding:22px}
+.unlock-list{display:flex;flex-direction:column;gap:14px;margin:14px 0 20px}
+.unlock-row{display:flex;gap:14px;align-items:flex-start}
+.unlock-mark{width:56px;height:56px;border-radius:50%;background:var(--grad);
+  color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.unlock-copy{min-width:0}
+/* these are spans inside a flex column child, so they need to be told to be
+   blocks or the name, the reason and the duration all run together on one line */
+.unlock-name{display:block;font-family:Archivo,sans-serif;font-weight:800;font-size:16px;
+  letter-spacing:-.015em;color:var(--ink);line-height:1.2}
+.unlock-why{display:block;font-size:13px;color:var(--muted);line-height:1.45;margin-top:3px}
+.unlock-worn{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--accent);font-weight:600;margin-top:6px}
+/* an achievement whose mark is not drawn yet still gets a row — it is earned,
+   it just has nothing to wear. A dashed well says "pending" without shouting. */
+.unlock-mark.no-art{background:none;border:2px dashed var(--hair)}
+
+/* ---- the achievement badge frame (v2-house-rules §4) ----
+   The state ring already lives OUTSIDE the disc edge, so this one goes INSIDE
+   and is TEXTURED rather than merely another colour — two solid rings at the
+   same weight fight, a beaded ring against a solid one does not. Volt because
+   DESIGN.md rations it to reward moments and it appears in no day-state
+   palette, so it can never be misread as a state. */
+.crew-card .avatar.cc-avatar.is-ach::before{content:"";position:absolute;inset:6px;
+  border-radius:50%;pointer-events:none;border:2.5px dotted var(--volt);opacity:.85}
+.crew-card .avatar.cc-avatar.is-ach .av{box-shadow:inset 0 0 0 2px rgba(199,244,100,.75);border-radius:50%}
+/* the frame eats ~6px of the disc, so the glyph gives it back — without this
+   the taller marks touch the inner ring */
+.crew-card .avatar.cc-avatar.is-ach .av svg{width:70%;height:70%}
+
+/* earned marks in the picker, so the wardrobe reads as a collection */
+#set-avatars button.is-earned{position:relative}
+#set-avatars button.is-earned::after{content:"";position:absolute;inset:-3px;border-radius:50%;
+  border:1.5px dotted var(--volt);pointer-events:none}

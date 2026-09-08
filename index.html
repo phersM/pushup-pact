@@ -580,6 +580,18 @@
      wordmark — daily target smashed, or a streak milestone (every 7 days).
      Reuses the same <symbol id="rr-wordmark"> as the header/onboarding via
      <use>, at onboarding scale. Auto-dismisses; tap anywhere also dismisses. -->
+<!-- UNLOCK PANEL (spec rule 3)
+     Nothing is labelled publicly — the crew only ever sees the icon change on
+     your avatar. This is the earner's own private view of what they got and
+     why, which is the whole reason the rules are allowed to stay unannounced. -->
+<div id="unlock-panel" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="unlock-title">
+  <div class="unlock-card">
+    <div class="l-title" id="unlock-title">Unlocked</div>
+    <div id="unlock-list" class="unlock-list"></div>
+    <button id="unlock-dismiss" class="btn btn-primary">Got it</button>
+  </div>
+</div>
+
 <div id="celebrate-overlay" class="overlay hidden" role="status" aria-live="polite">
   <!-- The knot wordmark used to be the hero here. It is retired everywhere else
        in the app, so succeeding was the one moment that resurrected the old

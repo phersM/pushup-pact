@@ -3,6 +3,8 @@
 import {
   toDayStr, addDays, parseDay, daysBetween, targetFor, dayTally, allTimeTotal, isLate,
   canDeclareRest, restsUsedInWeek, dayState, streak, weekStart, weeklySpoon, DEFAULT_SETTINGS,
+  weeklyEagle, achievementUnlocks, currentAward, decideAvatar, wardrobe, unseenUnlocks,
+  ACHIEVEMENTS, ACHIEVEMENT_BY_KEY,
 } from "./logic.js";
 import { makeAdapter, CODE_LENGTH, looksLikeCode } from "./data.js";
 
@@ -244,14 +246,100 @@ function refreshSpoonHolder() {
     settings: state.settings,
   });
 }
+
+// ---------- achievements ----------
+// The other end of the same weekly ranking, plus every member's standing
+// 24-hour unlock. Like the spoon, none of it is stored: `achievementUnlocks`
+// derives the lot from the shared log, so two phones reach the same answer
+// without anything being written down and there is no state to migrate when a
+// rule changes.
+let eagleHolderId = null;
+let awardByProfile = new Map();   // profileId -> {key, at} currently worn by right
+let myUnlocks = [];               // the signed-in member's unlocks, ascending
+
+function refreshAwards() {
+  const base = { sets: state.sets, statuses: state.statuses, profiles: state.profiles,
+                 settings: state.settings };
+  eagleHolderId = weeklyEagle({ ...base, weekStartDay: addDays(weekStart(today()), -7) });
+  // Recomputed once per render for the whole crew, never per avatar: each call
+  // walks that member's entire history, so doing it inside a map would redo
+  // every walk for every card drawn.
+  awardByProfile = new Map();
+  const now = simNow();
+  for (const p of state.profiles) {
+    const unlocks = achievementUnlocks({ ...base, profileId: p.id, today: today() });
+    if (state.me && p.id === state.me.id) myUnlocks = unlocks;
+    const award = currentAward({ unlocks, now });
+    if (award) awardByProfile.set(String(p.id), award);
+  }
+}
+
+// The wear windows are measured against the clock, but the app has a date
+// override for testing. Anchoring `now` to the simulated day keeps a simulated
+// "today" from showing yesterday's unlock as expired (or tomorrow's as live).
+function simNow() {
+  const override = localStorage.getItem("pushpact-date-override");
+  if (!override) return Date.now();
+  const real = new Date();
+  const d = parseDay(override);
+  d.setHours(real.getHours(), real.getMinutes(), real.getSeconds(), 0);
+  return d.getTime();
+}
 // The one place that decides which ART a member renders with. Their own colour
 // is preserved — only the art swaps — so the chip still reads as them. Not
 // used by the Settings/onboarding pickers on purpose: those show what a member
 // CHOSE, and the spoon is not a choice.
+// ---- achievement key -> avatar art ----
+// The two namespaces are NOT the same and must not be assumed to be. The
+// engine's key is `lastRung`; the mark that has always been drawn for it is
+// `spoon`. And only 8 of the 22 achievements have art at all — the rest are
+// specced and unlocked but undrawn.
+//
+// That gap is load-bearing. avatarHTML() falls back to rendering the raw string
+// for an unknown key, so without this guard a member who unlocked, say, First
+// Pin would wear the literal word "firstPin" on their avatar. An achievement
+// with no mark is still EARNED — it shows in the panel and the log — it just
+// cannot be worn until someone draws it.
+const ACHIEVEMENT_ART = { lastRung: "spoon" };
+function achievementArt(key) {
+  const art = ACHIEVEMENT_ART[key] ?? key;
+  return AVATAR_ART[art] ? art : null;
+}
+
+// Is this member's avatar currently something they EARNED rather than chose?
+// Drives the badge frame. The weekly pair are excluded deliberately: the spoon
+// is not an achievement to frame, and the eagle already announces itself by
+// being the eagle.
+function isWearingAward(p) {
+  if (!p) return false;
+  if (p.id === spoonHolderId || p.id === eagleHolderId) return false;
+  const a = awardByProfile.get(String(p.id));
+  return !!a && ACHIEVEMENT_BY_KEY[a.key]?.wear !== "weekly" && !!achievementArt(a.key);
+}
+
 function wornAvatar(p) {
-  if (!p || p.id !== spoonHolderId) return p?.avatar;
+  if (!p) return undefined;
   const colorKey = String(p.avatar || "").split(".")[1];
-  return colorKey ? `spoon.${colorKey}` : "spoon";
+  const paint = (art) => (colorKey ? `${art}.${colorKey}` : art);
+  // Spec rule 7: weekly rank, then the 24-hour unlock, then whatever you chose.
+  // "You cannot unlock your way out of the spoon, nor out of the eagle."
+  const d = decideAvatar({
+    unlocks: String(p.id) === String(state.me?.id) ? myUnlocks : [],
+    now: simNow(),
+    isSpoonHolder: p.id === spoonHolderId,
+    isEagleHolder: p.id === eagleHolderId,
+    chosen: p.avatar,
+  });
+  if (d.source === "spoon") return paint(achievementArt("lastRung") ?? "spoon");
+  if (d.source === "eagle" && achievementArt("eagleSoaring")) return paint("eagleSoaring");
+  // Other members' unlocks come from the crew-wide pass, not from decideAvatar,
+  // which only ever sees the signed-in member's list.
+  const award = awardByProfile.get(String(p.id));
+  if (award && ACHIEVEMENT_BY_KEY[award.key]?.wear !== "weekly") {
+    const art = achievementArt(award.key);
+    if (art) return paint(art);       // undrawn -> fall through to their own avatar
+  }
+  return p.avatar;
 }
 
 // haptics: navigator.vibrate is Android-only; iOS ≥17.4 gets the hidden
@@ -1082,7 +1170,7 @@ function renderCrew() {
     return `
       <div class="crew-card" data-pid="${p.id}">
         <div class="cc-top">
-          ${avatarChip(wornAvatar(p), `cc-avatar st-${st.state}`)}
+          ${avatarChip(wornAvatar(p), `cc-avatar st-${st.state}${isWearingAward(p) ? " is-ach" : ""}`)}
           <div class="cc-info">
             <div class="cc-name-row">
               <span class="nm">${esc(p.name)}${p.id === state.me.id ? " (you)" : ""}</span>
@@ -1355,9 +1443,33 @@ function renderSettings() {
 }
 
 function renderProfilePicker() {
-  $("set-avatars").innerHTML = AVATARS.map((a) =>
-    `<button data-a="${a}" ${a === setAvatar ? 'class="sel"' : ""} aria-label="${a}"
-       style="${a === setAvatar ? `background:${AVATAR_COLORS[setColor]}` : ""}">${avatarHTML(a)}</button>`).join("");
+  // Spec rule 6 — once unlocked, a mark joins your picker for good. Earned marks
+  // are appended AFTER the standard set and flagged, so the picker doubles as
+  // the only place you can see what you have collected: they are absent from
+  // AVATARS by design, being worn rather than chosen.
+  //
+  // Mapped through achievementArt() because wardrobe() speaks in ENGINE keys and
+  // the picker speaks in ART keys — `lastRung` has no entry in AVATAR_ART, its
+  // mark is `spoon`. Marks with no art yet are simply not offered.
+  //
+  // THE SPOON IS EXCLUDED, deliberately. Rule 6 says an unlocked avatar can be
+  // worn at will, but the wooden spoon is a consequence, not a trophy: the
+  // shipped code already keeps it out of AVATARS so it "is impossible to pick on
+  // purpose", and letting someone put it on by choice would defuse the one
+  // achievement that is supposed to sting. The eagle stays pickable — that one
+  // IS a trophy.
+  const earned = [...new Set(wardrobe(myUnlocks)
+    .filter((k) => k !== "lastRung")
+    .map(achievementArt)
+    .filter(Boolean))].filter((a) => !AVATARS.includes(a));
+  $("set-avatars").innerHTML = AVATARS.concat(earned).map((a) => {
+    const isEarned = earned.includes(a);
+    const cls = [a === setAvatar ? "sel" : "", isEarned ? "is-earned" : ""].filter(Boolean).join(" ");
+    const name = ACHIEVEMENT_BY_KEY[a]?.name ?? a;
+    return `<button data-a="${a}" class="${cls}" aria-label="${esc(isEarned ? name + " — earned" : a)}"
+       title="${isEarned ? esc(name) : ""}"
+       style="${a === setAvatar ? `background:${AVATAR_COLORS[setColor]}` : ""}">${avatarHTML(a)}</button>`;
+  }).join("");
   $("set-avatars").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => { setAvatar = b.dataset.a; renderProfilePicker(); }));
   $("set-colors").innerHTML = Object.entries(AVATAR_COLORS).map(([k, v]) =>
@@ -1438,6 +1550,49 @@ function tryAdminCode() {
     $("admin-modal-err").classList.remove("hidden");
   }
 }
+// ---------- the unlock panel ----------
+// Spec rule 3. The crew only ever sees your avatar change; this is the earner's
+// own account of what it was and why. Without it the rules are invisible, which
+// is what "never named anywhere" got wrong in the first draft.
+//
+// The high-water mark is the ONLY thing about achievements that is stored, and
+// it is per-device on purpose: it records what this phone has SHOWN you, not
+// what you have earned. Earning stays derived, so a new phone re-derives every
+// unlock and simply catches you up on the notifications.
+const UNLOCK_SEEN_KEY = () => `pushpact-unlocks-seen-${state.me?.id ?? "none"}`;
+
+function renderUnlockPanel() {
+  if (!state.me) return;
+  const seen = Number(localStorage.getItem(UNLOCK_SEEN_KEY())) || 0;
+  const fresh = unseenUnlocks(myUnlocks, seen, simNow());
+  if (!fresh.length) return;
+  // A member who joins with history behind them (or opens a new phone) would
+  // otherwise get every unlock they ever earned in one wall of cards. Show the
+  // most recent few and let the mark swallow the rest.
+  const show = fresh.slice(-3);
+  $("unlock-list").innerHTML = show.map((u) => {
+    const meta = ACHIEVEMENT_BY_KEY[u.key];
+    const worn = meta.wear === "weekly" ? "Worn for the week"
+      : meta.wear === "until-clean-week" ? "Worn until a clean week clears it"
+      : "Worn for 24 hours";
+    return `<div class="unlock-row">
+      <span class="unlock-mark${achievementArt(u.key) ? "" : " no-art"}">${
+        achievementArt(u.key) ? avatarHTML(achievementArt(u.key)) : ""}</span>
+      <span class="unlock-copy">
+        <span class="unlock-name">${esc(meta.name)}</span>
+        <span class="unlock-why">${esc(meta.blurb)}</span>
+        <span class="unlock-worn">${worn}</span>
+      </span>
+    </div>`;
+  }).join("");
+  $("unlock-panel").classList.remove("hidden");
+  hapticTick(24);
+  // Mark everything seen, not just what was shown, so the skipped ones do not
+  // queue up and reappear on the next render.
+  localStorage.setItem(UNLOCK_SEEN_KEY(), String(fresh[fresh.length - 1].at));
+}
+$("unlock-dismiss").addEventListener("click", () => $("unlock-panel").classList.add("hidden"));
+
 // ---------- admin: icon gallery ----------
 // Every mark in AVATAR_ART on the app's own disc, at 88px and 44px, animations
 // live. Built from AVATAR_ART itself rather than a hand-kept list, so a mark
@@ -1655,6 +1810,7 @@ function renderAll() {
   updateHeadDate();
   // one ranking pass for the whole render, before anything draws an avatar
   refreshSpoonHolder();
+  refreshAwards();
   // the header badge is the signed-in member, so it has to follow profile edits
   // and profile switches rather than being written once at boot. It is also the
   // only place the holder can see their OWN spoon — the corkboard filters them
@@ -1666,6 +1822,9 @@ function renderAll() {
   if (state.screen === "crew") { renderHome(); renderCrew(); }
   if (state.screen === "history") renderHistory();
   if (state.screen === "settings") renderSettings();
+  // last, so the panel opens over a screen that has finished drawing — and
+  // after refreshAwards(), which is what fills myUnlocks
+  renderUnlockPanel();
 }
 
 // ---------- home dashboard ----------
