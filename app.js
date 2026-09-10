@@ -505,6 +505,14 @@ const celebrateQueue = [];
 let celebrateShowing = false;
 let celebrateTimer = null;
 
+// Unguarded — for moments that should replay every time they happen.
+function queueCelebration(line) {
+  celebrateQueue.push(line);
+  if (!celebrateShowing) showNextCelebration();
+}
+
+// Guarded — for milestones that must fire once and only once (a 7-day streak is
+// not something you can cross twice).
 function queueCelebrationOnce(kind, id, line) {
   const key = celebrationSeenKey(kind, id);
   if (localStorage.getItem(key) === "1") return; // already played — one-shot
@@ -552,7 +560,15 @@ function dismissCelebration() {
 function maybeCelebrateTargetMet(beforeTally, repsAdded) {
   const target = targetFor(today(), state.settings);
   if (beforeTally < target && beforeTally + repsAdded >= target) {
-    queueCelebrationOnce("target", today(), pickAffirmation());
+    // ALWAYS, not once a day (owner, 2026-09-11). This used to be one-shot per
+    // day, so winding a set back below the target and climbing over it again
+    // got silence — the app watched you finish and said nothing.
+    //
+    // "Always" is safe here because it fires on the CROSSING, not on being met:
+    // both call sites are commit paths, and once you are over the line adding
+    // more reps does not cross it again. So it is one celebration per genuine
+    // finish, however many times you finish.
+    queueCelebration(pickAffirmation());
   }
 }
 function maybeCelebrateStreak() {

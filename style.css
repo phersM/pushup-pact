@@ -1176,8 +1176,17 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
      so the celebration was always dark and the light-mode mountain would have
      rendered teal-on-near-black. The overlay now takes the real theme. */
   color:var(--ink)}
-.celebrate-inner{position:relative;overflow:visible;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;animation:celebrateIn .6s var(--ease-out)}
-@keyframes celebrateIn{0%{opacity:0;transform:scale(.72) translateY(14px)}60%{opacity:1;transform:scale(1.06) translateY(-2px)}100%{opacity:1;transform:none}}
+.celebrate-inner{position:relative;overflow:visible;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;
+  animation:celebrateIn .72s cubic-bezier(.2,1.5,.35,1)}
+/* The zoom is the whole point of the moment, so it is bigger and lands harder
+   than the old .72->1.06 nudge: it comes in from further away and overshoots
+   further, on a spring curve rather than an ease-out. */
+@keyframes celebrateIn{
+  0%{opacity:0;transform:scale(.55) translateY(22px)}
+  55%{opacity:1;transform:scale(1.12) translateY(-4px)}
+  75%{transform:scale(.98) translateY(1px)}
+  100%{opacity:1;transform:none}
+}
 /* ---- celebration: the climb finishing ----
    Reuses the launch screen's own vocabulary rather than inventing a second
    celebratory language: the same peak asset masked the same way, the same
@@ -1751,3 +1760,18 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 /* the goat's beard — from v2-icons.js, shipped with the head-only goat */
 .av svg .aa-goatBeard{transform-box:view-box;transform-origin:24px 36px;animation:aaGoatBeard 3.2s ease-in-out infinite}
 @keyframes aaGoatBeard{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+
+
+/* ---- the celebration under prefers-reduced-motion ----
+   The blanket rule at the top of this file sets EVERY animation to .01ms, which
+   for the celebration means the overlay simply appears — no zoom, no flare,
+   nothing to mark the moment. Reduce Motion is a request for less MOTION, not
+   for no feedback, so the moment is given back as a pure cross-fade: opacity
+   only, no transform, which is the standard accessible substitute. The !important
+   is here to beat that blanket rule, not to beat the user's preference —
+   the scale and the travel stay switched off. */
+@media (prefers-reduced-motion: reduce){
+  .celebrate-inner{animation:celebrateFade .28s ease-out !important}
+  @keyframes celebrateFade{from{opacity:0}to{opacity:1}}
+  .cel-peak,.cel-peak-ink{animation:celebrateFade .28s ease-out !important}
+}
