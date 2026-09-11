@@ -4,7 +4,12 @@ tests/
 package.json
 package-lock.json
 council/
-design/
+# design/ stays unpublished — EXCEPT the celebration prototype, which the owner
+# approved and asked to have version-controlled (2026-09-11). It had existed on
+# one machine only; a clean checkout could not have produced it.
+design/*
+!design/celebration/
+design/celebration/*.ckpt-*
 supabase/
 DESIGN.md
 CLAUDE.md

@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Target met — celebration sequence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500&family=Instrument+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#1b1c1a;color:#EDE7DA;font-family:'Instrument Sans',system-ui,sans-serif;padding:20px}
+h1{font-size:17px;margin:0 0 4px}
+.sub{color:#9a958a;font-size:12.5px;margin:0 0 14px;max-width:76ch;line-height:1.55}
+.bar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;background:#232321;border:1px solid #3a3a37;
+  border-radius:11px;padding:11px 14px;margin-bottom:16px}
+.ctl{display:flex;flex-direction:column;gap:5px}
+.ctl label{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#8a857a}
+.ctl input[type=range]{width:130px}.ctl input[type=text]{font:inherit;font-size:13px;padding:6px 9px;border-radius:7px;
+  border:1px solid #4a4a46;background:#2f2f2c;color:#EDE7DA;width:190px}
+.ctl output{font-size:12px;font-variant-numeric:tabular-nums}
+button{font:inherit;font-size:13px;font-weight:600;padding:8px 15px;border-radius:9px;border:1px solid #0F7A6D;
+  background:#0F7A6D;color:#fff;cursor:pointer}
+button.alt{background:#2f2f2c;border-color:#4a4a46;color:#EDE7DA}
+
+/* ---------- the sequence ---------- */
+.frame{position:relative;width:390px;height:800px;border-radius:30px;overflow:hidden;
+  border:1px solid #4a4a46;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.frame.dark{--paper:#081F1B;--ink:#F5F0E3;--muted:#9FB3AC;--peak:#FAF3E8;--accent:#0F7A6D}
+.frame.light{--paper:#FAF3E8;--ink:#1F1B16;--muted:#6E6353;--peak:#0F7A6D;--accent:#0F7A6D}
+/* the flare is the MEMBER'S colour in both themes — never a grey dot */
+.frame{--flare:#2E7CF6}
+.scene{position:absolute;inset:0;background:var(--paper);overflow:hidden}
+
+/* The CAMERA moves; the mountain does not. transform-origin is the summit so
+   the push-in converges on the peak rather than the centre of frame. */
+.cam{position:absolute;inset:0;transform-origin:59.56% 34%;will-change:transform}
+/* Its own wrapper, not extra keyframes on .cam — the camera move and the kick
+   are different intents and must not fight over one transform. */
+.shake{position:absolute;inset:0;transform-origin:50% 50%}
+.mtn{position:absolute;left:50%;bottom:-6%;transform:translateX(-50%);
+  width:145%;aspect-ratio:900/805;background:var(--peak);opacity:.5;
+  -webkit-mask:url(../../assets/peak.png) no-repeat center/contain;
+  mask:url(../../assets/peak.png) no-repeat center/contain}
+.summit{position:absolute;left:50%;bottom:-6%;transform:translateX(-50%);width:145%;aspect-ratio:900/805;pointer-events:none}
+/* Motion is split across two nested elements: the WRAPPER does the vertical
+   travel on one clean curve, the CHILD does a slow lateral sway on its own
+   cycle. The browser composes them into a smooth arc. Doing both in one
+   keyframe list is what made the fall and the launch look jagged — every
+   direction change was a keyframe corner with linear interpolation either side
+   of it, and no amount of easing hides a corner. */
+.rise,.drop{position:absolute;left:59.56%;top:.87%;width:0;height:0}
+.flare,.ember{position:absolute;left:0;top:0;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
+  background:var(--flare);box-shadow:0 0 16px 5px var(--flare);opacity:0}
+/* The trail is pinned at the LAUNCH POINT and grows upward behind the flare.
+   Before, it was a fixed 70px bar hanging off the summit, so it read as a faint
+   streak coming out from under the beacon rather than as exhaust behind
+   something climbing. */
+.streak{position:absolute;left:59.56%;top:calc(.87% - 300px);width:4px;height:300px;margin:0 0 0 -2px;
+  border-radius:2px;transform-origin:50% 100%;filter:blur(1.5px);
+  background:linear-gradient(to top,transparent 0%,color-mix(in srgb,var(--flare) 55%,transparent) 55%,var(--flare) 100%);
+  opacity:0}
+.burst{position:absolute;left:59.56%;top:.87%;width:0;height:0}
+.spark{position:absolute;left:0;top:0;width:2px;height:52px;margin:-26px 0 0 -1px;transform-origin:50% 50%;
+  background:linear-gradient(to top,transparent,var(--flare));opacity:0}
+/* Confetti flecks, not more glow rings — small tumbling rectangles that scatter
+   and fall off. Two colours only: the member's flare colour and paper. */
+.flecks{position:absolute;left:0;top:0;width:0;height:0}
+.fleck{position:absolute;left:0;top:0;width:5px;height:9px;margin:-4px 0 0 -2px;border-radius:1px;
+  background:var(--fc);opacity:0;transform:translateY(-300px)}
+.playing .fleck{animation:fleck var(--fd) cubic-bezier(.12,.62,.3,1) var(--fdel) forwards}
+@keyframes fleck{
+  0%  {opacity:0;transform:translateY(-300px) translate(0,0) rotate(0deg) scale(.6)}
+  10% {opacity:1}
+  70% {opacity:1}
+  100%{opacity:0;transform:translateY(-300px) translate(var(--fx),var(--fy)) rotate(var(--fr)) scale(1)}
+}
+/* A shockwave that runs off the edge of the frame, plus one frame-wide flash
+   on the beat. This is the difference between a graphic and an event. */
+.shock{position:absolute;left:0;top:0;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;
+  border:1.5px solid var(--flare);opacity:0}
+@keyframes shockW{0%{opacity:.9;transform:translateY(-300px) scale(.15)}
+  60%{opacity:.22}100%{opacity:0;transform:translateY(-300px) scale(22)}}
+.playing .shock{animation:shockW 1500ms cubic-bezier(.08,.72,.24,1) 4700ms forwards}
+.playing .shock.sh2{animation:shockW 1900ms cubic-bezier(.08,.72,.24,1) 4880ms forwards}
+.whiteout{position:absolute;inset:0;background:var(--flare);opacity:0;pointer-events:none;z-index:5}
+.playing .whiteout{animation:whiteout 700ms ease-out 4670ms forwards}
+@keyframes whiteout{0%{opacity:0}9%{opacity:.22}100%{opacity:0}}
+.ring{position:absolute;left:0;top:0;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;
+  border:2px solid var(--flare);opacity:0}
+.flash{position:absolute;left:0;top:0;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;
+  background:var(--flare);box-shadow:0 0 34px 14px var(--flare);opacity:0}
+/* the light that settles back onto the peak once the fanfare is over */
+.lantern{position:absolute;left:59.56%;top:.87%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+  background:var(--flare);filter:blur(7px);opacity:0}
+.lantern-core{position:absolute;left:59.56%;top:.87%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;
+  background:var(--flare);opacity:0}
+
+.title{position:absolute;left:0;right:0;top:24%;text-align:center;opacity:0;z-index:5}
+/* identical treatment to the ASCENT lockup: same face, same .13em tracking and
+   the matching text-indent Bebas needs (it tracks from the RIGHT of each glyph,
+   so without the indent the word sits off its own centre) */
+.title h2{margin:0;font-family:'Bebas Neue',sans-serif;font-size:clamp(54px,15vw,74px);
+  line-height:.9;letter-spacing:.13em;text-indent:.13em;text-transform:uppercase;color:var(--ink)}
+.title p{margin:12px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--muted);opacity:0}
+.title .rule{width:90px;height:2px;background:var(--accent);margin:14px auto 0;transform:scaleX(0)}
+/* fanfare: a soft bloom behind the headline so it arrives lit, not just placed */
+/* Smoke, not haze. A single blurred ellipse is a fog bank — smoke needs
+   TEXTURE and it needs to churn. This runs the blob through an feTurbulence
+   displacement so its edge is broken and cloudy, and rotates it slowly while it
+   rises so the form changes as it drifts rather than just getting bigger. */
+.smoke{position:absolute;left:50%;top:20%;width:420px;height:300px;margin-left:-210px;border-radius:46% 54% 58% 42%/48% 44% 56% 52%;
+  background:radial-gradient(ellipse at 46% 58%,var(--flare) 0%,transparent 66%);
+  opacity:0;filter:blur(18px) url(#smokeChurn);z-index:6;pointer-events:none}
+.smoke.s2{top:12%;width:520px;margin-left:-260px;height:360px;filter:blur(26px) url(#smokeChurn);
+  border-radius:56% 44% 48% 52%/42% 58% 42% 58%}
+.playing .smoke{animation:smokeA 4200ms ease-out 5300ms both}
+.playing .smoke.s2{animation:smokeB 5000ms ease-out 5900ms both}
+@keyframes smokeA{0%{opacity:0;transform:translateY(0) scale(.65) rotate(0deg)}22%{opacity:.30}100%{opacity:0;transform:translateY(-96px) scale(1.75) rotate(26deg)}}
+@keyframes smokeB{0%{opacity:0;transform:translate(0,0) scale(.85) rotate(0deg)}28%{opacity:.22}100%{opacity:0;transform:translate(34px,-150px) scale(2.1) rotate(-34deg)}}
+.title .halo{position:absolute;left:50%;top:34%;width:320px;height:320px;margin:-160px 0 0 -160px;border-radius:50%;
+  background:radial-gradient(circle,var(--flare) 0%,transparent 62%);opacity:0;z-index:-1}
+
+.ui{position:absolute;inset:0;padding:34px 24px;z-index:4}
+.ui .tally{font-family:Archivo,'Instrument Sans',sans-serif;font-weight:800;font-size:64px;color:var(--ink);text-align:center;margin-top:90px}
+.ui .of{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted);text-align:center;margin-top:6px}
+.ui .dock{position:absolute;left:50%;transform:translateX(-50%);bottom:26px;width:80%;height:56px;border-radius:999px;
+  border:1px solid rgba(250,243,232,.16);background:rgba(11,59,52,.35)}
+
+.playing .ui{animation:uiOut 700ms ease-in 700ms both,uiBack 900ms ease-out 11900ms both}
+.playing .cam{animation:camera 11800ms linear both}
+.playing .shake{animation:shake 950ms cubic-bezier(.2,.8,.3,1) 4680ms both}
+/* the beacon lights FIRST — that is the moment the target was met; everything
+   after it is the camera reacting */
+.playing .lantern.pre{animation:lanternOn 600ms ease-out 200ms both,flick 3.1s ease-in-out 800ms 2,
+  handoff 420ms ease-in 2560ms forwards}
+.playing .lantern-core.pre{animation:lanternOn 600ms ease-out 200ms both,flick2 2.3s ease-in-out 800ms 2,
+  handoff 420ms ease-in 2560ms forwards}
+/* The beacon must not still be sitting on the summit while the flare leaves
+   from the same point — that is what reads as a tiny duplicate light. It
+   BECOMES the flare: it shrinks out as the flare picks up speed. */
+@keyframes handoff{to{opacity:0;transform:scale(.35)}}
+.playing .rise{animation:riseY 2100ms cubic-bezier(.16,.5,.3,1) 2600ms both}
+.playing .flare{animation:flareLit 2100ms linear 2600ms both,swayA 1400ms ease-in-out 2600ms both}
+.playing .streak{animation:streakUp 2100ms cubic-bezier(.16,.5,.3,1) 2600ms both}
+.playing .spark{animation:spark 1000ms cubic-bezier(.1,.72,.28,1) 4700ms forwards}
+.playing .ring{animation:ring 1000ms cubic-bezier(.1,.72,.28,1) 4700ms forwards}
+.playing .flash{animation:flash 720ms ease-out 4660ms forwards}
+.playing .title .halo{animation:haloA 2200ms cubic-bezier(.2,.7,.3,1) 4700ms both}
+.playing .title .h2x{animation:haloB 3000ms cubic-bezier(.15,.6,.25,1) 5150ms both}
+.playing .title .h3x{animation:haloC 3800ms ease-out 5750ms both}
+.playing .ring.r2{animation:ring 1150ms cubic-bezier(.1,.72,.28,1) 4880ms forwards}
+.playing .ring.r3{animation:ring 1350ms cubic-bezier(.1,.72,.28,1) 5060ms forwards}
+.playing .title{animation:titleIn 900ms cubic-bezier(.18,.9,.3,1.08) 4950ms both,titleOut 900ms ease-in 6700ms forwards}
+.playing .title .rule{animation:ruleIn 800ms cubic-bezier(.2,.7,.3,1) 5350ms both}
+.playing .title p{animation:subIn 700ms ease-out 5600ms both}
+.playing .drop{animation:dropY 4700ms linear 7100ms forwards}
+.playing .ember{animation:emberLit 4700ms linear 7100ms forwards,swayB 3400ms ease-in-out 7100ms infinite}
+.playing .lantern{animation:lanternOn 700ms ease-out 11550ms forwards,flick 3.1s ease-in-out 12250ms infinite}
+.playing .lantern-core{animation:lanternOn 700ms ease-out 11550ms forwards,flick2 2.3s ease-in-out 12250ms infinite}
+
+@keyframes shake{
+  0%{transform:translate(0,0) scale(1)}   9%{transform:translate(0,11px) scale(1.014)}
+  24%{transform:translate(-6px,-7px) scale(1.006)} 41%{transform:translate(5px,4px)}
+  60%{transform:translate(-3px,-2px)}  80%{transform:translate(2px,1px)}
+  100%{transform:translate(0,0) scale(1)}
+}
+@keyframes uiOut{to{opacity:0;transform:scale(1.06)}}
+
+/* ONE continuous camera move. Per-keyframe easing, not one curve stretched over
+   the whole thing — a single cubic-bezier across nine stops makes every segment
+   brake and restart, which is the staged, stiff feel. Here the push-in eases in,
+   the pan runs almost linear so it never stalls, and only the final return
+   settles. */
+@keyframes camera{
+  /* 0-7%    hold — the beacon lights on the peak, camera has not moved
+     7-25%   push in, only to 1.75x. At 2.5x the summit filled the frame and the
+             mountain was lost entirely, which is what made it read as abstract
+     25-58%  pull BACK OUT while panning up after the flare: the peak slides to
+             the bottom of frame but never leaves it
+     58-78%  hold on the sky for the burst and the line
+     78-100% return to exactly where we started */
+  0%   {transform:scale(1) translateY(0);      animation-timing-function:linear}
+  7%   {transform:scale(1) translateY(0);      animation-timing-function:cubic-bezier(.45,0,.5,1)}
+  25%  {transform:scale(1.75) translateY(3%);  animation-timing-function:cubic-bezier(.3,0,.45,1)}
+  38%  {transform:scale(1.6) translateY(14%);  animation-timing-function:linear}
+  58%  {transform:scale(1.16) translateY(44%); animation-timing-function:linear}
+  78%  {transform:scale(1.14) translateY(46%); animation-timing-function:cubic-bezier(.4,0,.3,1)}
+  100% {transform:scale(1) translateY(0)}
+}
+@keyframes riseY{from{transform:translateY(0)}to{transform:translateY(-300px)}}
+/* No hang. The ember is falling for the whole of the camera's return and
+   touches down exactly as the peak settles — 4700ms from 7100ms lands on
+   11800ms, which is where @keyframes camera comes to rest.
+   Per-keyframe easing keeps the fall FLAT: one bezier over the whole drop
+   accelerates like a stone, and this is meant to be a float. Only the first
+   14% (residual lift off the burst) and the last stretch are eased at all. */
+@keyframes dropY{
+  0%  {transform:translateY(-300px); animation-timing-function:cubic-bezier(.25,.6,.45,1)}
+  14% {transform:translateY(-310px); animation-timing-function:cubic-bezier(.5,.02,.6,1)}
+  62% {transform:translateY(-160px); animation-timing-function:cubic-bezier(.4,0,.45,1)}
+  100%{transform:translateY(0)}
+}
+/* opacity and scale only — the travel lives on the wrapper */
+@keyframes flareLit{0%{opacity:0;transform:scale(.4)}8%{opacity:1;transform:scale(1)}90%{opacity:1;transform:scale(.92)}100%{opacity:0;transform:scale(.85)}}
+@keyframes emberLit{0%{opacity:0;transform:scale(1.25)}6%{opacity:1}93%{opacity:.95;transform:scale(.92)}100%{opacity:0;transform:scale(.86)}}
+/* one slow sway each, out of phase with the travel — this is the drift */
+@keyframes swayA{0%{margin-left:-4.5px}50%{margin-left:-3.2px}100%{margin-left:-4.5px}}
+@keyframes swayB{0%{margin-left:-4.5px}50%{margin-left:3.5px}100%{margin-left:-4.5px}}
+@keyframes streakUp{
+  0%  {opacity:0;transform:scaleY(0)}
+  10% {opacity:.95;transform:scaleY(.12)}
+  70% {opacity:.7;transform:scaleY(.8)}
+  100%{opacity:0;transform:scaleY(1)}
+}
+@keyframes spark{
+  0%{opacity:0;transform:translateY(-300px) rotate(var(--a)) translateY(0) scaleY(.3)}
+  16%{opacity:1}
+  100%{opacity:0;transform:translateY(-300px) rotate(var(--a)) translateY(-150px) scaleY(1)}
+}
+/* forwards, NOT both — with `both` the 0% keyframe (opacity .9) painted for the
+   whole delay, leaving a bright ring parked in the sky before the burst had
+   happened. Nothing may be visible before its own start. */
+@keyframes ring{0%{opacity:.9;transform:translateY(-300px) scale(.3)}100%{opacity:0;transform:translateY(-300px) scale(17)}}
+@keyframes flash{0%{opacity:0;transform:translateY(-300px) scale(.4)}18%{opacity:1;transform:translateY(-300px) scale(1.7)}100%{opacity:0;transform:translateY(-300px) scale(2.8)}}
+/* three genuinely different blooms — same three-copies-of-one-thing problem the
+   dashes had: identical timing reads as a pattern, not as a burst */
+@keyframes haloA{0%{opacity:0;transform:scale(.35)}22%{opacity:.34}100%{opacity:0;transform:scale(1.5)}}
+@keyframes haloB{0%{opacity:0;transform:scale(.8)}34%{opacity:.20}100%{opacity:0;transform:scale(2.3)}}
+@keyframes haloC{0%{opacity:0;transform:scale(1.2)}46%{opacity:.12}100%{opacity:0;transform:scale(3.1)}}
+@keyframes titleIn{0%{opacity:0;transform:translateY(20px) scale(.86)}100%{opacity:1;transform:none}}
+@keyframes subIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes ruleIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes titleOut{to{opacity:0;transform:translateY(-10px)}}
+/* the light comes home: falls out of the sky and settles on the summit */
+
+
+
+@keyframes lanternOn{to{opacity:1}}
+@keyframes flick{0%,100%{opacity:.85;transform:scale(1)}41%{opacity:1;transform:scale(1.12)}78%{opacity:.6;transform:scale(.93)}}
+@keyframes flick2{0%,100%{opacity:.95;transform:scale(1)}24%{opacity:1;transform:scale(1.1)}71%{opacity:.7;transform:scale(.9)}}
+@keyframes uiBack{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.playing *{animation-duration:.01ms!important}}
+</style></head><body>
+<h1>Target met — celebration sequence</h1>
+<p class="sub">Standalone. Nothing here is wired into the app. Camera pushes in on the summit, the flare launches,
+the camera follows it into the sky, and it bursts into the line. Tune it here; it gets embedded once it is right.</p>
+<div class="bar">
+  <button onclick="play()">Replay</button>
+  <button class="alt" onclick="toggleTheme()">Light / dark</button>
+  <div class="ctl"><label>Speed <output id="oS">1.00x</output></label><input type="range" id="spd" min="50" max="160" value="100"></div>
+  <div class="ctl"><label>Headline <span style="font-weight:400;letter-spacing:0;text-transform:none;color:#6f6a60">(random of 30)</span></label><input type="text" id="txt" value="You did it"></div><div class="ctl"><label>Lock line</label><input type="checkbox" id="lock" style="width:18px;height:18px"></div>
+  <div class="ctl"><label>Sub</label><input type="text" id="txt2" value="Target met"></div>
+  <div class="ctl"><label>Profile colour</label><div id="sw" style="display:flex;gap:6px"></div></div>
+</div>
+<div class="frame dark" id="frame">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+      <filter id="smokeChurn"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="5" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="70" xChannelSelector="R" yChannelSelector="G"/></filter>
+    </defs></svg>
+    <div class="scene" id="scene">
+    <div class="shake"><div class="cam" id="cam">
+      <div class="mtn"></div>
+      <div class="summit">
+        <i class="streak"></i><span class="rise"><i class="flare"></i></span>
+        <div class="burst" id="burst"><i class="shock"></i><i class="shock sh2"></i><div class="flecks" id="flecks"></div><i class="ring"></i><i class="ring r2"></i><i class="ring r3"></i><i class="flash"></i></div>
+        <span class="drop"><i class="ember"></i></span><i class="lantern pre"></i><i class="lantern-core pre"></i><i class="lantern"></i><i class="lantern-core"></i>
+      </div>
+    </div></div>
+    <div class="ui">
+      <div class="tally">70</div><div class="of">of 70 today</div>
+      <div class="dock"></div>
+    </div>
+    <i class="smoke"></i><i class="smoke s2"></i>
+    <i class="whiteout"></i>
+    <div class="title" id="title"><i class="halo"></i><i class="halo h2x"></i><i class="halo h3x"></i><h2 id="h2">You did it</h2><div class="rule"></div><p id="p2">Target met</p></div>
+  </div>
+</div>
+<script>
+var flecks=document.getElementById('flecks');
+for(var f=0;f<46;f++){
+  var el=document.createElement('i'); el.className='fleck';
+  var ang=Math.random()*Math.PI*2, dist=95+Math.random()*245;
+  el.style.setProperty('--fx',(Math.cos(ang)*dist).toFixed(0)+'px');
+  el.style.setProperty('--fy',(Math.sin(ang)*dist*0.75+90).toFixed(0)+'px');  // gravity pulls them down
+  el.style.setProperty('--fr',(Math.random()*900-450).toFixed(0)+'deg');
+  el.style.setProperty('--fd',(1500+Math.random()*1400).toFixed(0)+'ms');
+  el.style.setProperty('--fdel',(4700+Math.random()*420).toFixed(0)+'ms');
+  el.style.setProperty('--fc', Math.random()<0.55 ? 'var(--flare)' : 'var(--peak)');
+  flecks.appendChild(el);
+}
+var burst=document.getElementById('burst');
+for(var i=0;i<24;i++){var s=document.createElement('i');s.className='spark';s.style.setProperty('--a',(i*(360/24)+(i%2?7:0))+'deg');burst.appendChild(s);}
+var frame=document.getElementById('frame'), scene=document.getElementById('scene'), spd=document.getElementById('spd');
+function play(){
+  var line=pickLine();
+  document.getElementById('h2').textContent=line;
+  document.getElementById('txt').value=line;
+  scene.classList.remove('playing'); void scene.offsetWidth; scene.classList.add('playing');
+}
+spd.addEventListener('input',function(){
+  var f=spd.value/100; document.getElementById('oS').textContent=f.toFixed(2)+'x';
+  scene.style.setProperty('--dur',(7000/f)+'ms');
+  document.querySelectorAll('.playing *').forEach(function(){});
+  scene.style.animationDuration=null; play();
+});
+function toggleTheme(){frame.classList.toggle('dark');frame.classList.toggle('light');}
+// A hidden bank of achievement lines — one is drawn at random each time the
+// sequence plays, so hitting your target does not say the identical sentence
+// every day for months. Voice rules from the app apply: no slang, never "mate".
+var AFFIRMATIONS=["You did it", "Summit reached", "Target met", "Rung claimed", "Held the line", "Nothing owed", "Clean sheet", "Banked in full", "Full count", "Above the line", "Ledger closed", "Signed off", "Day secured", "Every rep counted", "Peak taken", "No excuse today", "Straight to the top", "That is the day", "You made the number", "One more rung", "Topped out", "Roped in, topped out", "Earned outright", "Nothing left owing", "Target cleared", "The climb continues", "Owed nothing", "Stood it up", "Counted, all of it", "Made the summit"];
+var lastLine=null;
+function pickLine(){
+  if(document.getElementById('lock').checked) return document.getElementById('txt').value;
+  var v; do { v=AFFIRMATIONS[Math.floor(Math.random()*AFFIRMATIONS.length)]; }
+  while(AFFIRMATIONS.length>1 && v===lastLine);   // never the same one twice running
+  lastLine=v; return v;
+}
+['txt','txt2'].forEach(function(id,n){document.getElementById(id).addEventListener('input',function(e){
+  document.getElementById(n?'p2':'h2').textContent=e.target.value; });});
+var COLS={teal:"#0F7A6D",pine:"#0B3B34",blue:"#2E7CF6",mustard:"#F2C51D",brick:"#D9385E",violet:"#7B5CF0"};
+var sw=document.getElementById('sw');
+Object.keys(COLS).forEach(function(k){
+  var b=document.createElement('button'); b.title=k;
+  b.style.cssText='width:24px;height:24px;padding:0;border-radius:50%;border:2px solid transparent;background:'+COLS[k];
+  b.onclick=function(){ frame.style.setProperty('--flare',COLS[k]);
+    sw.querySelectorAll('button').forEach(function(x){x.style.borderColor='transparent';});
+    b.style.borderColor='#EDE7DA'; play(); };
+  sw.appendChild(b);
+});
+sw.children[2].style.borderColor='#EDE7DA';
+play();
+</script>
+</body></html>
