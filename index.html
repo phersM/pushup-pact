@@ -593,23 +593,28 @@
 </div>
 
 <div id="celebrate-overlay" class="overlay hidden" role="status" aria-live="polite">
-  <!-- The knot wordmark used to be the hero here. It is retired everywhere else
-       in the app, so succeeding was the one moment that resurrected the old
-       brand. Replaced with the thing you actually just did: the route runs to
-       the top and the lantern settles on the summit. Same asset, same path and
-       the same two-period flicker as the launch screen. -->
-  <div class="celebrate-inner">
-    <div class="cel-peak" aria-hidden="true">
-      <div class="cel-peak-ink"></div>
-      <!-- The celebration is a FLARE, not a replay of the climb. Redrawing the
-           route was showing you the journey again at the moment you finished it;
-           what a summit deserves is a signal fired off the top. A flare rises
-           from the peak, bursts, and the note lands under it. -->
-      <i class="cel-flare"></i>
-      <div class="cel-burst"><i class="cel-spark" style="--a:0deg"></i><i class="cel-spark" style="--a:30deg"></i><i class="cel-spark" style="--a:60deg"></i><i class="cel-spark" style="--a:90deg"></i><i class="cel-spark" style="--a:120deg"></i><i class="cel-spark" style="--a:150deg"></i><i class="cel-spark" style="--a:180deg"></i><i class="cel-spark" style="--a:210deg"></i><i class="cel-spark" style="--a:240deg"></i><i class="cel-spark" style="--a:270deg"></i><i class="cel-spark" style="--a:300deg"></i><i class="cel-spark" style="--a:330deg"></i><i class="cel-ring"></i><i class="cel-core-flash"></i></div>
-      <i class="cel-glow"></i><i class="cel-core"></i>
-    </div>
-    <p id="celebrate-line" class="celebrate-line"></p>
+  <!-- The approved celebration take (design/celebration/index.html), compressed
+       from 12.8s to ~10s. The beacon lights on the summit, the camera pushes in,
+       the flare launches and the camera follows it into the sky, it bursts into
+       the line, then the ember floats down for the whole of the camera's return
+       and settles on the peak. The stage is the prototype's own 390x800 frame,
+       scaled to fit (see showNextCelebration), so every px offset in it holds. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <filter id="smokeChurn"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="5" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="70" xChannelSelector="R" yChannelSelector="G"/></filter>
+  </defs></svg>
+  <div id="cel-stage" class="cel-stage">
+    <div class="cel-shake" aria-hidden="true"><div class="cel-cam">
+      <div class="cel-mtn"></div>
+      <div class="cel-summit">
+        <i class="cel-streak"></i><span class="cel-rise"><i class="cel-flare"></i></span>
+        <div class="cel-burst" id="cel-burst"><i class="cel-shock"></i><i class="cel-shock sh2"></i><div class="cel-flecks" id="cel-flecks"></div><i class="cel-ring"></i><i class="cel-ring r2"></i><i class="cel-ring r3"></i><i class="cel-flash"></i></div>
+        <span class="cel-drop"><i class="cel-ember"></i></span><i class="cel-lantern pre"></i><i class="cel-lantern-core pre"></i><i class="cel-lantern"></i><i class="cel-lantern-core"></i>
+      </div>
+    </div></div>
+    <i class="cel-smoke" aria-hidden="true"></i><i class="cel-smoke s2" aria-hidden="true"></i>
+    <i class="cel-whiteout" aria-hidden="true"></i>
+    <div class="cel-title"><i class="cel-halo" aria-hidden="true"></i><i class="cel-halo h2x" aria-hidden="true"></i><i class="cel-halo h3x" aria-hidden="true"></i><h2 id="celebrate-line"></h2><div class="cel-rule" aria-hidden="true"></div><p id="celebrate-sub"></p></div>
   </div>
 </div>
 

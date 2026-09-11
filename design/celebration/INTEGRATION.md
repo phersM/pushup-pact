@@ -1,16 +1,16 @@
 # Celebration — prototype state and integration spec
 
+**Status 2026-09-11: integrated.** The approved take now runs in the app on every target
+crossing (`#celebrate-overlay` in `index.html`, the `.cel-*` block in `style.css`,
+`showNextCelebration()` / `maybeCelebrate()` in `app.js`). Decisions taken, recorded below
+under each section. The prototype stays here, version-controlled, as the reference take.
+
 **Status 2026-08-11:** the prototype is finished and owner-approved ("this is lovely").
-Nothing here is wired into the app yet. This file is the handover for that next phase.
 
 - Prototype: `design/celebration/index.html`
 - Checkpoint: `index.html.ckpt-bigger-celebration-20260811-1846`
-- The app still runs its own **simpler** flare/burst — see `#celebrate-overlay` in
-  `index.html`, `.cel-*` in `style.css`, `showNextCelebration()` in `app.js`.
-
-> `design/` is in `.gitignore` — deliberately, it is not published. That also means
-> **the prototype is untracked and a clean checkout will not contain it.** It exists on
-> this machine only. If it matters beyond this machine, that decision needs revisiting.
+- `design/celebration/` is carved out of the `design/*` ignore rule (2026-09-11), so the
+  prototype is committed; its `*.ckpt-*` checkpoints stay local.
 
 ---
 
@@ -73,6 +73,10 @@ Do not rescale by hand. Either:
 
 (a) is the smaller change and preserves the composition. Recommended.
 
+**Done (2026-09-11), as (a) plus one step:** the overlay holds a `.cel-stage` that IS the
+prototype's 390x800 frame, bottom-anchored and scaled by `--cel-s = min(vw/390, vh/800)`.
+Scaling the frame rather than the numbers keeps every px offset exactly as tuned.
+
 ### 2. The camera needs a wrapper the app does not have
 
 `@keyframes camera` animates `.cam` (`position:absolute; inset:0`) and `.shake` wraps it
@@ -94,6 +98,12 @@ you hit target, daily**. The app currently dwells 6200ms. Options, in order of p
 
 **Owner decision required.** Do not pick one silently.
 
+**Decided 2026-09-11: compress to ~10s.** Everything up to and including the line is the
+approved take to the millisecond. After it: the ember leaves at 6600 (as the line fades —
+the dead beat is gone), the camera holds the sky until 7300 and comes home over 2300ms, and
+the ember lands with it at 9600. Lantern relights 9350; the overlay fades home 9900–10500.
+Smoke tails shortened (A 3400ms, B 3700ms from 5700), halo C 3200ms.
+
 ### 4. `prefers-reduced-motion`
 
 The prototype has **no** reduced-motion path — it is a motion study. The app has a global
@@ -101,12 +111,18 @@ rule and `showNextCelebration()` already branches (`reduced ? 1800 : 6200`). The
 integrated version needs a static or near-static variant: beacon lights, affirmation
 appears, done.
 
+**Done:** `.reduced` instead of `.playing` — mountain, lantern lit, line, one opacity
+cross-fade, 2400ms. The line sits at 11% there (not 24%) because the camera never pans up.
+
 ### 5. Member colour
 
 `--flare` is set per-theme on `.frame` in the prototype and swapped by the colour buttons.
 In the app it must come from the signed-in member's profile colour — this was settled
 earlier ("the light mode should not use a grey dot, it should replicate the colour of the
 profile"). Set it as a custom property on the overlay when the celebration opens.
+
+**Done:** `celebrationFlare()`. Pine is lifted to teal in dark mode only — #0B3B34 on the
+#081F1B paper is invisible.
 
 ### 6. Affirmations — already done, do not port
 
@@ -122,12 +138,20 @@ overlay. Decide whether a streak milestone gets the same full sequence or a shor
 firing 12.8s twice back to back (target met *and* streak) would be punishing. The queue
 in `showNextCelebration()` already serialises them with a 250ms gap.
 
+**Done:** same take for both, never two on one commit. `maybeCelebrate()` runs
+`decideCelebrations()` (logic.js, tested): target + milestone on one commit collapses to the
+streak. If that milestone already played, the target still gets its moment.
+
 ---
 
 ## Verification
 
-Browser automation is banned on this project. Everything above was verified by code
-review plus scripted checks:
+The prototype (2026-08-11) was verified by code review plus scripted checks, below. The
+integration (2026-09-11) was also checked in the in-app browser at 375x812, dark and light:
+triggered for real by banking past the target, then paused and scrubbed frame by frame
+(beacon, push-in, climb, burst, line, ember fall, settle, and the reduced static take).
+
+Prototype checks:
 
 - CSS brace balance across the `<style>` block
 - DOM tree parsed and nesting confirmed (`.shake` wraps `.cam`, `.whiteout` is a sibling

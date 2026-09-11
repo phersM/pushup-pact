@@ -4,7 +4,7 @@ import {
   toDayStr, addDays, parseDay, daysBetween, targetFor, dayTally, allTimeTotal, isLate,
   canDeclareRest, restsUsedInWeek, dayState, streak, weekStart, weeklySpoon, DEFAULT_SETTINGS,
   weeklyEagle, achievementUnlocks, currentAward, decideAvatar, wardrobe, unseenUnlocks,
-  ACHIEVEMENTS, ACHIEVEMENT_BY_KEY,
+  ACHIEVEMENTS, ACHIEVEMENT_BY_KEY, decideCelebrations,
 } from "./logic.js";
 import { makeAdapter, CODE_LENGTH, looksLikeCode } from "./data.js";
 
@@ -498,83 +498,151 @@ function streakCelebrateLine(n) {
 function celebrationSeenKey(kind, id) {
   return `pushpact-celebrate-${kind}-${state.me.id}-${id}`;
 }
-// queued rather than fired straight in, so the rare case of both a target
-// AND a streak milestone landing on the same tap shows one, then the other —
-// never two overlays stacked.
+// queued rather than fired straight in, so a celebration arriving while one is
+// already on screen waits its turn — never two overlays stacked. (Target and
+// streak on the SAME commit never queue two: see maybeCelebrate.)
 const celebrateQueue = [];
 let celebrateShowing = false;
-let celebrateTimer = null;
+let celebrateTimers = [];
 
 // Unguarded — for moments that should replay every time they happen.
-function queueCelebration(line) {
-  celebrateQueue.push(line);
+function queueCelebration(entry) {
+  celebrateQueue.push(entry);
   if (!celebrateShowing) showNextCelebration();
+  return true;
 }
 
 // Guarded — for milestones that must fire once and only once (a 7-day streak is
-// not something you can cross twice).
-function queueCelebrationOnce(kind, id, line) {
+// not something you can cross twice). Returns whether it queued anything.
+function queueCelebrationOnce(kind, id, entry) {
   const key = celebrationSeenKey(kind, id);
-  if (localStorage.getItem(key) === "1") return; // already played — one-shot
+  if (localStorage.getItem(key) === "1") return false; // already played — one-shot
   localStorage.setItem(key, "1");
-  celebrateQueue.push(line);
-  if (!celebrateShowing) showNextCelebration();
+  return queueCelebration(entry);
+}
+
+// The take, in ms, from design/celebration/index.html as compressed to ~10s.
+// These mirror the .playing timeline in style.css — change one, change both.
+const CEL_BURST_MS = 4680;   // the camera kick: the moment it goes off
+const CEL_LEAVE_MS = 9900;   // ember landed at 9600, lantern relit; fade home
+const CEL_FADE_MS = 600;     // matches #celebrate-overlay.leaving
+const CEL_REDUCED_MS = 2400; // the static take: read the line, done
+const CEL_STAGE_W = 390, CEL_STAGE_H = 800;  // the prototype's frame
+
+// 24 spokes are fixed; the 46 confetti flecks are re-thrown every time so no
+// two celebrations scatter the same way.
+function buildCelebrationDebris() {
+  const burst = $("cel-burst");
+  if (!burst.querySelector(".cel-spark")) {
+    for (let i = 0; i < 24; i++) {
+      const sp = document.createElement("i");
+      sp.className = "cel-spark";
+      sp.style.setProperty("--a", `${i * 15 + (i % 2 ? 7 : 0)}deg`);
+      burst.appendChild(sp);
+    }
+  }
+  const flecks = $("cel-flecks");
+  flecks.textContent = "";
+  for (let f = 0; f < 46; f++) {
+    const el = document.createElement("i");
+    el.className = "cel-fleck";
+    const ang = Math.random() * Math.PI * 2, dist = 95 + Math.random() * 245;
+    el.style.setProperty("--fx", `${(Math.cos(ang) * dist).toFixed(0)}px`);
+    el.style.setProperty("--fy", `${(Math.sin(ang) * dist * 0.75 + 90).toFixed(0)}px`); // gravity
+    el.style.setProperty("--fr", `${(Math.random() * 900 - 450).toFixed(0)}deg`);
+    el.style.setProperty("--fd", `${(1500 + Math.random() * 1400).toFixed(0)}ms`);
+    el.style.setProperty("--fdel", `${(4700 + Math.random() * 420).toFixed(0)}ms`);
+    el.style.setProperty("--fc", Math.random() < 0.55 ? "var(--flare)" : "var(--peak)");
+    flecks.appendChild(el);
+  }
+}
+
+// The flare is the member's own profile colour. Pine on the dark paper is the
+// one pairing that vanishes (#0B3B34 on #081F1B), so in dark it lifts to teal.
+function celebrationFlare() {
+  const col = state.me ? avatarParts(state.me.avatar).color : null;
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  if (!col) return null;
+  return dark && col === AVATAR_COLORS.pine ? AVATAR_COLORS.teal : col;
 }
 
 function showNextCelebration() {
-  const line = celebrateQueue.shift();
-  if (line === undefined) { celebrateShowing = false; return; }
+  const entry = celebrateQueue.shift();
+  if (entry === undefined) { celebrateShowing = false; return; }
   celebrateShowing = true;
   const overlay = $("celebrate-overlay");
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  $("celebrate-line").textContent = line;
-  overlay.classList.remove("hidden");
-  hapticTick(reduced ? 12 : 28);
-  clearTimeout(celebrateTimer);
-  // The celebration climb runs 350ms + 2800ms, then the summit lights at 3000ms.
-  // The old 3200ms dwell dismissed the overlay just as the lantern came up, so
-  // nobody ever saw the thing the celebration is about. Long enough to watch
-  // the climb finish and hold; a tap still dismisses it early.
-  celebrateTimer = setTimeout(dismissCelebration, reduced ? 1800 : 6200);
+  $("celebrate-line").textContent = entry.line;
+  $("celebrate-sub").textContent = entry.sub || "";
+  overlay.querySelector(".cel-title").classList.toggle("long", entry.line.length > 20);
+  const flare = celebrationFlare();
+  if (flare) overlay.style.setProperty("--flare", flare);
+  else overlay.style.removeProperty("--flare");
+  // fit the prototype's frame to the screen, bottom-anchored
+  overlay.style.setProperty("--cel-s",
+    Math.min(window.innerWidth / CEL_STAGE_W, window.innerHeight / CEL_STAGE_H).toFixed(3));
+  if (!reduced) buildCelebrationDebris();
+  overlay.classList.remove("playing", "reduced", "leaving", "hidden");
+  void overlay.offsetWidth;   // restart every animation from frame zero
+  overlay.classList.add(reduced ? "reduced" : "playing");
+  hapticTick(reduced ? 12 : 16);
+  clearCelebrationTimers();
+  if (reduced) {
+    celebrateTimers.push(setTimeout(dismissCelebration, CEL_REDUCED_MS));
+  } else {
+    celebrateTimers.push(
+      setTimeout(() => hapticTick(28), CEL_BURST_MS),
+      setTimeout(() => overlay.classList.add("leaving"), CEL_LEAVE_MS),
+      setTimeout(dismissCelebration, CEL_LEAVE_MS + CEL_FADE_MS),
+    );
+  }
+  // a tap still ends it early — ten seconds must never trap anyone
   overlay.addEventListener("click", dismissCelebration, { once: true });
+}
+
+function clearCelebrationTimers() {
+  celebrateTimers.forEach(clearTimeout);
+  celebrateTimers = [];
 }
 
 // Confetti removed 2026-08-11 (owner: the old celebration is not right for
 // this app any more). It threw lime #C7F464 and gold #F2C51D cut-paper — two
-// colours that are not in the title-screen palette at all — across a screen
-// whose whole language is one ink on paper. The climb finishing and the summit
-// lighting is the celebration now; nothing is thrown.
-
+// colours that are not in the title-screen palette at all. The flecks in the
+// take above are the member's colour and paper only.
 
 function dismissCelebration() {
-  clearTimeout(celebrateTimer);
+  clearCelebrationTimers();
   const overlay = $("celebrate-overlay");
+  overlay.removeEventListener("click", dismissCelebration);
   overlay.classList.add("hidden");
+  overlay.classList.remove("playing", "reduced", "leaving");
   // small gap before the next one so back-to-back moments don't feel like a glitch
   setTimeout(showNextCelebration, 250);
 }
 
-// called with the tally BEFORE the mutation that just landed, so the crossing
-// (not-met -> met) is only ever detected once per commit, and the one-shot
-// key above guards against it firing again later the same day.
-function maybeCelebrateTargetMet(beforeTally, repsAdded) {
+// Called with the tally BEFORE the mutation that just landed, from both commit
+// paths. One commit, one celebration: decideCelebrations (logic.js) collapses a
+// target crossing and a streak milestone on the same commit into the streak,
+// so nobody sits through the ten-second take twice back to back.
+//
+// The target fires ALWAYS, not once a day (owner, 2026-09-11) — safe because it
+// fires on the CROSSING, not on being met: once you are over the line, adding
+// more reps does not cross it again. Winding a set back below and finishing
+// again is a genuine second finish, and it gets its moment.
+function maybeCelebrate(beforeTally, repsAdded) {
   const target = targetFor(today(), state.settings);
-  if (beforeTally < target && beforeTally + repsAdded >= target) {
-    // ALWAYS, not once a day (owner, 2026-09-11). This used to be one-shot per
-    // day, so winding a set back below the target and climbing over it again
-    // got silence — the app watched you finish and said nothing.
-    //
-    // "Always" is safe here because it fires on the CROSSING, not on being met:
-    // both call sites are commit paths, and once you are over the line adding
-    // more reps does not cross it again. So it is one celebration per genuine
-    // finish, however many times you finish.
-    queueCelebration(pickAffirmation());
-  }
-}
-function maybeCelebrateStreak() {
-  const stk = streak({ sets: state.sets, statuses: state.statuses, profileId: state.me.id, today: today(), settings: state.settings });
-  if (stk > 0 && stk % 7 === 0) {
-    queueCelebrationOnce("streak", String(stk), streakCelebrateLine(stk));
+  const streakDays = streak({ sets: state.sets, statuses: state.statuses, profileId: state.me.id, today: today(), settings: state.settings });
+  const targetEntry = () => ({ kind: "target", line: pickAffirmation(), sub: `Target met \u00b7 ${target}` });
+  for (const c of decideCelebrations({ beforeTally, repsAdded, target, streakDays })) {
+    if (c.kind === "streak") {
+      const played = queueCelebrationOnce("streak", String(c.days),
+        { kind: "streak", line: streakCelebrateLine(c.days), sub: `${c.days}-day streak` });
+      // the milestone is one-shot; if it already played, a real target
+      // crossing on the same commit still deserves its own moment
+      if (!played && c.alsoTarget) queueCelebration(targetEntry());
+    } else {
+      queueCelebration(targetEntry());
+    }
   }
 }
 
@@ -882,8 +950,7 @@ $("bank-btn").addEventListener("click", async () => {
         dial.classList.add("smashed");
         setTimeout(() => dial.classList.remove("smashed"), 700);
       }
-      maybeCelebrateTargetMet(before, reps);
-      maybeCelebrateStreak();
+      maybeCelebrate(before, reps);
     });
   } finally {
     // if the commit threw (network/storage), compose is untouched and the
@@ -1902,8 +1969,7 @@ async function homeQuickAdd(n, btn) {
       localStorage.setItem("pushpact-banks", String((parseInt(localStorage.getItem("pushpact-banks"), 10) || 0) + 1));
       await refetch();
       chipBankFeedback(n);
-      maybeCelebrateTargetMet(before, n);
-      maybeCelebrateStreak();
+      maybeCelebrate(before, n);
     });
   } finally {
     if (btn) btn.disabled = false;

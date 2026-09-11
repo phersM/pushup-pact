@@ -1168,81 +1168,211 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
    above every other overlay/modal (z-index 95 vs 50/70) so it can never be
    trapped behind the confirm sheet or the dial hint; tap-anywhere or the
    auto-dismiss timer always closes it, so it can never trap the user. */
-#celebrate-overlay{z-index:95;background-color:var(--paper);flex-direction:column;gap:20px;cursor:pointer;
-  /* The --ink/--paper override that used to live here existed ONLY for the knot
-     wordmark's <use>, which needed light letters on a dark scrim. That wordmark
-     is gone from this overlay, and the override actively broke its replacement:
-     background:var(--paper) resolved to the local #12211D instead of the theme,
-     so the celebration was always dark and the light-mode mountain would have
-     rendered teal-on-near-black. The overlay now takes the real theme. */
-  color:var(--ink)}
-.celebrate-inner{position:relative;overflow:visible;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;
-  animation:celebrateIn .72s cubic-bezier(.2,1.5,.35,1)}
-/* The zoom is the whole point of the moment, so it is bigger and lands harder
-   than the old .72->1.06 nudge: it comes in from further away and overshoots
-   further, on a spring curve rather than an ease-out. */
-@keyframes celebrateIn{
-  0%{opacity:0;transform:scale(.55) translateY(22px)}
-  55%{opacity:1;transform:scale(1.12) translateY(-4px)}
-  75%{transform:scale(.98) translateY(1px)}
-  100%{opacity:1;transform:none}
-}
-/* ---- celebration: the climb finishing ----
-   Reuses the launch screen's own vocabulary rather than inventing a second
-   celebratory language: the same peak asset masked the same way, the same
-   route path, the same obFlickerA/obFlickerB two-period lantern. The climber
-   runs the route once and the summit lights behind it. */
-.cel-peak{position:relative;width:min(300px,72vw);aspect-ratio:900/805;overflow:visible}
-.cel-peak-ink{position:absolute;inset:0;background:var(--peak-ink);opacity:.9;
+#celebrate-overlay{z-index:95;display:block;padding:0;overflow:hidden;cursor:pointer;
+  background-color:var(--paper);color:var(--ink);
+  /* The flare is the MEMBER'S colour in both themes, never a grey dot. JS sets
+     --flare from the profile; this is only the fallback. --peak is the mountain
+     and the confetti's second colour: teal on paper, paper on pine. */
+  --flare:var(--accent);--peak:var(--peak-ink)}
+#celebrate-overlay.playing{animation:celOverlayIn 520ms ease-out both}
+#celebrate-overlay.leaving{opacity:0;transition:opacity 600ms ease-in}
+@keyframes celOverlayIn{from{opacity:0}to{opacity:1}}
+
+/* ---- the celebration: design/celebration/index.html, integrated ----
+   The stage is the prototype's own 390x800 frame, bottom-anchored and scaled to
+   fit the screen (--cel-s, set in showNextCelebration). Every offset inside it
+   is absolute px — 300px of climb, 150px spokes, 245px of confetti — and was
+   tuned by eye at exactly this size, so the frame is scaled rather than the
+   numbers. The overlay does the clipping; the mountain runs past the stage's
+   sides on a wide screen, which is just more mountain.
+
+   Compressed from 12.8s to ~10s (owner, 2026-09-11). The launch and the burst
+   are the approved take untouched, to the millisecond. The cuts are all after
+   the line: the dead beat before the ember set off is gone (it now leaves as
+   the line fades), the smoke tail is tighter, and the ember's fall and the
+   camera's return are shortened TOGETHER — they are locked, the ember touches
+   down as the peak settles, now at 9600ms instead of 11800ms.
+
+   Rules paid for in the prototype that must survive any future edit:
+   travel and sway live on separate wrappers (.cel-rise/.cel-drop carry the
+   translateY, the child carries opacity + sway) · per-keyframe timing
+   functions, never one bezier stretched across a multi-stop move · `forwards`,
+   never `both`, on anything that appears after a delay · never two lights on
+   the summit at once · two colours only, --flare and --peak. */
+.cel-stage{position:absolute;left:50%;bottom:0;width:390px;height:800px;margin-left:-195px;
+  transform-origin:50% 100%;transform:scale(var(--cel-s,1))}
+/* The CAMERA moves; the mountain does not. transform-origin is the summit so the
+   push-in converges on the peak rather than the centre of frame. The kick has
+   its own wrapper so it never fights the camera over one transform. */
+.cel-shake{position:absolute;inset:0;transform-origin:50% 50%}
+.cel-cam{position:absolute;inset:0;transform-origin:59.56% 34%;will-change:transform}
+.cel-mtn{position:absolute;left:50%;bottom:-6%;transform:translateX(-50%);
+  width:145%;aspect-ratio:900/805;background:var(--peak);opacity:.5;
   -webkit-mask:url("assets/peak.png") no-repeat center/contain;
-  mask:url("assets/peak.png") no-repeat center/contain;
-  animation:celPeakIn .8s var(--ease-out) both}
-@keyframes celPeakIn{from{opacity:0;transform:translateY(10px)}to{opacity:.9;transform:none}}
-/* flare: a bright head leaving the summit and rising into the sky */
-.cel-flare{position:absolute;left:calc(59.56% - 4px);top:calc(.87% - 4px);
-  width:8px;height:8px;border-radius:50%;background:var(--trail-launch);
-  box-shadow:0 0 14px 4px var(--trail-launch);opacity:0;
-  animation:celFlare 700ms cubic-bezier(.2,.6,.35,1) 700ms forwards}
-/* Travels a LENGTH, not a percentage. A percentage translate resolves against
-   the element's own box, so -96% on an 8px flare moved it 7.7px — nowhere near
-   the sky. -150px is measured against the same number the burst is offset by,
-   so the burst goes off exactly where the flare runs out. */
-@keyframes celFlare{
-  0%{opacity:0;transform:translateY(0) scale(.5)}
-  18%{opacity:1;transform:translateY(-22px) scale(1)}
-  100%{opacity:0;transform:translateY(-150px) scale(.85)}}
+  mask:url("assets/peak.png") no-repeat center/contain}
+.cel-summit{position:absolute;left:50%;bottom:-6%;transform:translateX(-50%);width:145%;aspect-ratio:900/805;pointer-events:none}
+.cel-rise,.cel-drop{position:absolute;left:59.56%;top:.87%;width:0;height:0}
+.cel-flare,.cel-ember{position:absolute;left:0;top:0;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
+  background:var(--flare);box-shadow:0 0 16px 5px var(--flare);opacity:0}
+/* pinned at the launch point, grows upward behind the flare — exhaust, not a bar */
+.cel-streak{position:absolute;left:59.56%;top:calc(.87% - 300px);width:4px;height:300px;margin:0 0 0 -2px;
+  border-radius:2px;transform-origin:50% 100%;filter:blur(1.5px);
+  background:linear-gradient(to top,transparent 0%,color-mix(in srgb,var(--flare) 55%,transparent) 55%,var(--flare) 100%);
+  opacity:0}
+.cel-burst{position:absolute;left:59.56%;top:.87%;width:0;height:0}
+.cel-spark{position:absolute;left:0;top:0;width:2px;height:52px;margin:-26px 0 0 -1px;transform-origin:50% 50%;
+  background:linear-gradient(to top,transparent,var(--flare));opacity:0}
+.cel-flecks{position:absolute;left:0;top:0;width:0;height:0}
+.cel-fleck{position:absolute;left:0;top:0;width:5px;height:9px;margin:-4px 0 0 -2px;border-radius:1px;
+  background:var(--fc);opacity:0;transform:translateY(-300px)}
+.cel-shock{position:absolute;left:0;top:0;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;
+  border:1.5px solid var(--flare);opacity:0}
+.cel-whiteout{position:absolute;inset:-50%;background:var(--flare);opacity:0;pointer-events:none;z-index:5}
+.cel-ring{position:absolute;left:0;top:0;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;
+  border:2px solid var(--flare);opacity:0}
+.cel-flash{position:absolute;left:0;top:0;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;
+  background:var(--flare);box-shadow:0 0 34px 14px var(--flare);opacity:0}
+.cel-lantern{position:absolute;left:59.56%;top:.87%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+  background:var(--flare);filter:blur(7px);opacity:0}
+.cel-lantern-core{position:absolute;left:59.56%;top:.87%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;
+  background:var(--flare);opacity:0}
+/* Smoke, not haze: an feTurbulence displacement breaks the edge and it turns
+   slowly as it rises, so the form changes as it drifts. */
+.cel-smoke{position:absolute;left:50%;top:20%;width:420px;height:300px;margin-left:-210px;border-radius:46% 54% 58% 42%/48% 44% 56% 52%;
+  background:radial-gradient(ellipse at 46% 58%,var(--flare) 0%,transparent 66%);
+  opacity:0;filter:blur(18px) url(#smokeChurn);z-index:6;pointer-events:none}
+.cel-smoke.s2{top:12%;width:520px;margin-left:-260px;height:360px;filter:blur(26px) url(#smokeChurn);
+  border-radius:56% 44% 48% 52%/42% 58% 42% 58%}
+/* identical treatment to the ASCENT lockup: Bebas at .13em, with the matching
+   text-indent (Bebas tracks from the right of each glyph) */
+.cel-title{position:absolute;left:0;right:0;top:24%;padding:0 18px;text-align:center;opacity:0;z-index:5}
+.cel-title h2{margin:0;font-family:"Bebas Neue",Archivo,sans-serif;font-weight:400;font-size:58px;
+  line-height:.9;letter-spacing:.13em;text-indent:.13em;text-transform:uppercase;color:var(--ink)}
+/* a streak line runs to ~35 characters; at 58px that is four lines */
+.cel-title.long h2{font-size:44px}
+.cel-title p{margin:12px 0 0;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--muted);opacity:0}
+.cel-rule{width:90px;height:2px;background:var(--accent);margin:14px auto 0;transform:scaleX(0)}
+.cel-halo{position:absolute;left:50%;top:34%;width:320px;height:320px;margin:-160px 0 0 -160px;border-radius:50%;
+  background:radial-gradient(circle,var(--flare) 0%,transparent 62%);opacity:0;z-index:-1}
 
-/* burst: it goes off where the flare ran out of climb */
-.cel-burst{position:absolute;left:59.56%;top:calc(.87% - 150px);width:0;height:0}
-.cel-spark{position:absolute;left:0;top:0;width:2px;height:26px;margin:-13px 0 0 -1px;
-  background:linear-gradient(to top,transparent,var(--trail-launch));
-  transform:rotate(var(--a)) translateY(0);transform-origin:50% 50%;opacity:0;
-  animation:celSpark 900ms cubic-bezier(.15,.7,.3,1) 1380ms forwards}
+/* ---- the timeline (ms) ----
+   0     beacon lights on the summit; camera holds
+   826   push in to 1.75x on the peak
+   2560  beacon hands off as the flare leaves (never two lights at once)
+   2600  flare climbs, camera pulls back and pans up after it
+   4660  flash · kick · spokes · shockwaves · rings · confetti
+   4950  the line lands under the burst; fades from 6700
+   6600  the ember sets off as the line goes (was 7100 — the dead beat)
+   7300  camera leaves the sky and comes home with it (was 9204)
+   9600  ember touches down as the peak settles (was 11800)
+   9350  lantern relights, just before touchdown, so they merge
+   9900  overlay fades back to the app (JS) */
+.playing .cel-cam{animation:celCamera 9600ms linear both}
+.playing .cel-shake{animation:celShake 950ms cubic-bezier(.2,.8,.3,1) 4680ms both}
+.playing .cel-lantern.pre{animation:celLanternOn 600ms ease-out 200ms both,celFlick 3.1s ease-in-out 800ms 2,
+  celHandoff 420ms ease-in 2560ms forwards}
+.playing .cel-lantern-core.pre{animation:celLanternOn 600ms ease-out 200ms both,celFlick2 2.3s ease-in-out 800ms 2,
+  celHandoff 420ms ease-in 2560ms forwards}
+.playing .cel-rise{animation:celRiseY 2100ms cubic-bezier(.16,.5,.3,1) 2600ms both}
+.playing .cel-flare{animation:celFlareLit 2100ms linear 2600ms both,celSwayA 1400ms ease-in-out 2600ms both}
+.playing .cel-streak{animation:celStreakUp 2100ms cubic-bezier(.16,.5,.3,1) 2600ms both}
+.playing .cel-flash{animation:celFlash 720ms ease-out 4660ms forwards}
+.playing .cel-whiteout{animation:celWhiteout 700ms ease-out 4670ms forwards}
+.playing .cel-spark{animation:celSpark 1000ms cubic-bezier(.1,.72,.28,1) 4700ms forwards}
+.playing .cel-ring{animation:celRing 1000ms cubic-bezier(.1,.72,.28,1) 4700ms forwards}
+.playing .cel-ring.r2{animation:celRing 1150ms cubic-bezier(.1,.72,.28,1) 4880ms forwards}
+.playing .cel-ring.r3{animation:celRing 1350ms cubic-bezier(.1,.72,.28,1) 5060ms forwards}
+.playing .cel-shock{animation:celShockW 1500ms cubic-bezier(.08,.72,.24,1) 4700ms forwards}
+.playing .cel-shock.sh2{animation:celShockW 1900ms cubic-bezier(.08,.72,.24,1) 4880ms forwards}
+.playing .cel-fleck{animation:celFleck var(--fd) cubic-bezier(.12,.62,.3,1) var(--fdel) forwards}
+.playing .cel-halo{animation:celHaloA 2200ms cubic-bezier(.2,.7,.3,1) 4700ms both}
+.playing .cel-halo.h2x{animation:celHaloB 3000ms cubic-bezier(.15,.6,.25,1) 5150ms both}
+.playing .cel-halo.h3x{animation:celHaloC 3200ms ease-out 5750ms both}
+.playing .cel-title{animation:celTitleIn 900ms cubic-bezier(.18,.9,.3,1.08) 4950ms both,celTitleOut 900ms ease-in 6700ms forwards}
+.playing .cel-rule{animation:celRuleIn 800ms cubic-bezier(.2,.7,.3,1) 5350ms both}
+.playing .cel-title p{animation:celSubIn 700ms ease-out 5600ms both}
+.playing .cel-smoke{animation:celSmokeA 3400ms ease-out 5300ms both}
+.playing .cel-smoke.s2{animation:celSmokeB 3700ms ease-out 5700ms both}
+.playing .cel-drop{animation:celDropY 3000ms linear 6600ms forwards}
+.playing .cel-ember{animation:celEmberLit 3000ms linear 6600ms forwards,celSwayB 3400ms ease-in-out 6600ms infinite}
+.playing .cel-lantern{animation:celLanternOn 700ms ease-out 9350ms forwards,celFlick 3.1s ease-in-out 10050ms infinite}
+.playing .cel-lantern-core{animation:celLanternOn 700ms ease-out 9350ms forwards,celFlick2 2.3s ease-in-out 10050ms infinite}
+
+/* ONE continuous camera move, per-keyframe easing. The stops are the
+   prototype's own milliseconds through the pan (826 · 2950 · 4484 · 6844) —
+   only the hold on the sky and the return are shorter.
+     0–826      hold: the beacon lights, the camera has not moved
+     826–2950   push in, only to 1.75x — at 2.5x the mountain was lost
+     2950–6844  pull back out while panning up after the flare; the peak slides
+                to the bottom of frame but never leaves it
+     6844–7300  hold on the sky for the line
+     7300–9600  come home, exactly to where we started */
+@keyframes celCamera{
+  0%     {transform:scale(1) translateY(0);      animation-timing-function:linear}
+  8.6%   {transform:scale(1) translateY(0);      animation-timing-function:cubic-bezier(.45,0,.5,1)}
+  30.73% {transform:scale(1.75) translateY(3%);  animation-timing-function:cubic-bezier(.3,0,.45,1)}
+  46.71% {transform:scale(1.6) translateY(14%);  animation-timing-function:linear}
+  71.29% {transform:scale(1.16) translateY(44%); animation-timing-function:linear}
+  76.04% {transform:scale(1.14) translateY(46%); animation-timing-function:cubic-bezier(.4,0,.3,1)}
+  100%   {transform:scale(1) translateY(0)}
+}
+@keyframes celShake{
+  0%{transform:translate(0,0) scale(1)}   9%{transform:translate(0,11px) scale(1.014)}
+  24%{transform:translate(-6px,-7px) scale(1.006)} 41%{transform:translate(5px,4px)}
+  60%{transform:translate(-3px,-2px)}  80%{transform:translate(2px,1px)}
+  100%{transform:translate(0,0) scale(1)}
+}
+@keyframes celRiseY{from{transform:translateY(0)}to{transform:translateY(-300px)}}
+/* The fall stays FLAT: only the residual lift off the burst and the landing are
+   eased. One bezier over the whole drop accelerates like a stone. */
+@keyframes celDropY{
+  0%  {transform:translateY(-300px); animation-timing-function:cubic-bezier(.25,.6,.45,1)}
+  14% {transform:translateY(-310px); animation-timing-function:cubic-bezier(.5,.02,.6,1)}
+  62% {transform:translateY(-160px); animation-timing-function:cubic-bezier(.4,0,.45,1)}
+  100%{transform:translateY(0)}
+}
+/* opacity and scale only — the travel lives on the wrapper */
+@keyframes celFlareLit{0%{opacity:0;transform:scale(.4)}8%{opacity:1;transform:scale(1)}90%{opacity:1;transform:scale(.92)}100%{opacity:0;transform:scale(.85)}}
+@keyframes celEmberLit{0%{opacity:0;transform:scale(1.25)}6%{opacity:1}93%{opacity:.95;transform:scale(.92)}100%{opacity:0;transform:scale(.86)}}
+@keyframes celSwayA{0%{margin-left:-4.5px}50%{margin-left:-3.2px}100%{margin-left:-4.5px}}
+@keyframes celSwayB{0%{margin-left:-4.5px}50%{margin-left:3.5px}100%{margin-left:-4.5px}}
+@keyframes celStreakUp{
+  0%  {opacity:0;transform:scaleY(0)}
+  10% {opacity:.95;transform:scaleY(.12)}
+  70% {opacity:.7;transform:scaleY(.8)}
+  100%{opacity:0;transform:scaleY(1)}
+}
+@keyframes celHandoff{to{opacity:0;transform:scale(.35)}}
 @keyframes celSpark{
-  0%{opacity:0;transform:rotate(var(--a)) translateY(0) scaleY(.3)}
-  20%{opacity:1}
-  100%{opacity:0;transform:rotate(var(--a)) translateY(-64px) scaleY(1)}}
-.cel-ring{position:absolute;left:0;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;
-  border-radius:50%;border:2px solid var(--trail-launch);opacity:0;
-  animation:celRing 900ms cubic-bezier(.15,.7,.3,1) 1380ms forwards}
-@keyframes celRing{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(7)}}
-.cel-core-flash{position:absolute;left:0;top:0;width:10px;height:10px;margin:-5px 0 0 -5px;
-  border-radius:50%;background:var(--trail-launch);box-shadow:0 0 26px 10px var(--trail-launch);
-  opacity:0;animation:celFlash 620ms ease-out 1360ms forwards}
-@keyframes celFlash{0%{opacity:0;transform:scale(.4)}22%{opacity:1;transform:scale(1.4)}100%{opacity:0;transform:scale(2.2)}}
-
-.cel-glow,.cel-core{position:absolute;border-radius:50%;opacity:0}
-.cel-glow{left:calc(59.56% - 15px);top:calc(.87% - 15px);width:30px;height:30px;
-  background:var(--peak-ink);filter:blur(8px);
-  animation:celLightUp .6s ease-out 2.1s forwards,obFlickerA 3.1s ease-in-out 2.7s infinite}
-.cel-core{left:calc(59.56% - 3.5px);top:calc(.87% - 3.5px);width:7px;height:7px;
-  background:var(--peak-ink);
-  animation:celLightUp .6s ease-out 2.1s forwards,obFlickerB 2.3s ease-in-out 2.7s infinite}
-@keyframes celLightUp{to{opacity:1}}
-.celebrate-line{animation:fadeUp .6s var(--ease-out) 1.9s backwards;font-family:"Bebas Neue",Archivo,sans-serif;font-weight:400;font-size:30px;
-  line-height:1.05;letter-spacing:.09em;text-indent:.09em;text-transform:uppercase;
-  color:var(--ink);position:relative;max-width:320px}
-.celebrate-line::after{content:"";display:block;width:76px;height:2px;background:var(--accent);margin:14px auto 0;opacity:.85}
+  0%{opacity:0;transform:translateY(-300px) rotate(var(--a)) translateY(0) scaleY(.3)}
+  16%{opacity:1}
+  100%{opacity:0;transform:translateY(-300px) rotate(var(--a)) translateY(-150px) scaleY(1)}
+}
+@keyframes celRing{0%{opacity:.9;transform:translateY(-300px) scale(.3)}100%{opacity:0;transform:translateY(-300px) scale(17)}}
+@keyframes celFlash{0%{opacity:0;transform:translateY(-300px) scale(.4)}18%{opacity:1;transform:translateY(-300px) scale(1.7)}100%{opacity:0;transform:translateY(-300px) scale(2.8)}}
+@keyframes celShockW{0%{opacity:.9;transform:translateY(-300px) scale(.15)}
+  60%{opacity:.22}100%{opacity:0;transform:translateY(-300px) scale(22)}}
+@keyframes celWhiteout{0%{opacity:0}9%{opacity:.22}100%{opacity:0}}
+@keyframes celFleck{
+  0%  {opacity:0;transform:translateY(-300px) translate(0,0) rotate(0deg) scale(.6)}
+  10% {opacity:1}
+  70% {opacity:1}
+  100%{opacity:0;transform:translateY(-300px) translate(var(--fx),var(--fy)) rotate(var(--fr)) scale(1)}
+}
+@keyframes celSmokeA{0%{opacity:0;transform:translateY(0) scale(.65) rotate(0deg)}22%{opacity:.30}100%{opacity:0;transform:translateY(-96px) scale(1.75) rotate(26deg)}}
+@keyframes celSmokeB{0%{opacity:0;transform:translate(0,0) scale(.85) rotate(0deg)}28%{opacity:.22}100%{opacity:0;transform:translate(34px,-150px) scale(2.1) rotate(-34deg)}}
+/* three genuinely different blooms — identical timing reads as a pattern */
+@keyframes celHaloA{0%{opacity:0;transform:scale(.35)}22%{opacity:.34}100%{opacity:0;transform:scale(1.5)}}
+@keyframes celHaloB{0%{opacity:0;transform:scale(.8)}34%{opacity:.20}100%{opacity:0;transform:scale(2.3)}}
+@keyframes celHaloC{0%{opacity:0;transform:scale(1.2)}46%{opacity:.12}100%{opacity:0;transform:scale(3.1)}}
+@keyframes celTitleIn{0%{opacity:0;transform:translateY(20px) scale(.86)}100%{opacity:1;transform:none}}
+@keyframes celSubIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes celRuleIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes celTitleOut{to{opacity:0;transform:translateY(-10px)}}
+@keyframes celLanternOn{to{opacity:1}}
+@keyframes celFlick{0%,100%{opacity:.85;transform:scale(1)}41%{opacity:1;transform:scale(1.12)}78%{opacity:.6;transform:scale(.93)}}
+@keyframes celFlick2{0%,100%{opacity:.95;transform:scale(1)}24%{opacity:1;transform:scale(1.1)}71%{opacity:.7;transform:scale(.9)}}
 
 /* council polish round (Expansionist QoL, 2026-07-20) */
 /* dial: volt discharge each full revolution */
@@ -1763,15 +1893,20 @@ body.ih-open .screen{padding-bottom:calc(224px + env(safe-area-inset-bottom))}
 
 
 /* ---- the celebration under prefers-reduced-motion ----
-   The blanket rule at the top of this file sets EVERY animation to .01ms, which
-   for the celebration means the overlay simply appears — no zoom, no flare,
-   nothing to mark the moment. Reduce Motion is a request for less MOTION, not
-   for no feedback, so the moment is given back as a pure cross-fade: opacity
-   only, no transform, which is the standard accessible substitute. The !important
-   is here to beat that blanket rule, not to beat the user's preference —
-   the scale and the travel stay switched off. */
+   The blanket rule at the top of this file cuts every animation to .01ms, which
+   would snap the whole take to its last frame — and the last frame of the line
+   is faded OUT, so the member would be told nothing. Reduce Motion is a request
+   for less MOTION, not for no feedback. showNextCelebration() adds .reduced
+   instead of .playing, and this is the static take: the mountain, the lantern
+   lit on the summit, the line — arriving as one cross-fade, opacity only. The
+   !important beats the blanket rule, not the user's preference. */
+#celebrate-overlay.reduced .cel-lantern,#celebrate-overlay.reduced .cel-lantern-core,
+#celebrate-overlay.reduced .cel-title,#celebrate-overlay.reduced .cel-title p{opacity:1}
+#celebrate-overlay.reduced .cel-rule{transform:none}
+/* the moving take reads the line with the camera panned up into the sky; at
+   rest, 24% puts a two-line line's sub straight onto the summit lantern */
+#celebrate-overlay.reduced .cel-title{top:11%}
 @media (prefers-reduced-motion: reduce){
-  .celebrate-inner{animation:celebrateFade .28s ease-out !important}
+  #celebrate-overlay.reduced{animation:celebrateFade .28s ease-out !important}
   @keyframes celebrateFade{from{opacity:0}to{opacity:1}}
-  .cel-peak,.cel-peak-ink{animation:celebrateFade .28s ease-out !important}
 }
